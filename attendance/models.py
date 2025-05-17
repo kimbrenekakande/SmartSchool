@@ -94,11 +94,35 @@ class QRCode(models.Model):
     def get_expiration_time(self):
         return self.session_date.strftime('%Y-%m-%d %H:%M:%S')
 
+    def get_remaining_minutes(self):
+        """Return the number of minutes remaining until the QR code expires."""
+        if not self.is_active:
+            return 0
+        now = timezone.now()
+        if now > self.session_date:
+            return 0
+        return (self.session_date - now).total_seconds() // 60
+
     def get_remaining_time(self):
+        """Return a user-friendly string of the remaining time."""
         if not self.is_active:
             return 'Deactivated'
-        if timezone.now() > self.session_date:
+            
+        now = timezone.now()
+        if now > self.session_date:
             return 'Expired'
+            
+        delta = self.session_date - now
+        minutes = delta.total_seconds() // 60
+        
+        if minutes < 1:
+            return 'Less than a minute'
+        elif minutes < 60:
+            return f'{int(minutes)}m'
+        else:
+            hours = minutes // 60
+            remaining_minutes = int(minutes % 60)
+            return f'{int(hours)}h {remaining_minutes}m'
         remaining = self.session_date - timezone.now()
         return str(remaining).split('.')[0]  # Remove microseconds
 
@@ -107,12 +131,25 @@ class Attendance(models.Model):
     qrcode = models.ForeignKey(QRCode, on_delete=models.CASCADE)
     timestamp = models.DateTimeField(auto_now_add=True)
     status = models.CharField(max_length=20, choices=[('present', 'Present'), ('absent', 'Absent')])
-
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    device_info = models.JSONField(null=True, blank=True)
+    
     class Meta:
         unique_together = ('student', 'qrcode')
-
+        ordering = ['-timestamp']
+    
     def __str__(self):
-        return f"{self.student.username} - {self.qrcode.module.code}"
+        return f"{self.student.username} - {self.qrcode} - {self.status}"
+        
+    def save(self, *args, **kwargs):
+        # Add device info if available
+        if not self.device_info:
+            self.device_info = {
+                'user_agent': '',  # Will be set in the view
+                'ip_address': ''   # Will be set in the view
+            }
+        super().save(*args, **kwargs)
 
 @receiver(post_save, sender=QRCode)
 def generate_qr_code(sender, instance, created, **kwargs):

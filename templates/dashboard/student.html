@@ -2,13 +2,194 @@
 
 {% block title %}Student Dashboard - Smart School Attendance{% endblock %}
 
+{% block extra_css %}
+<style>
+    .qr-code-card {
+        transition: all 0.3s ease;
+    }
+    .qr-code-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    }
+    .expired {
+        opacity: 0.7;
+    }
+    .expiring-soon {
+        border-left: 4px solid #f59e0b;
+    }
+    .attendance-progress {
+        height: 0.5rem;
+        border-radius: 0.25rem;
+    }
+    .module-card {
+        transition: transform 0.2s;
+    }
+    .module-card:hover {
+        transform: translateY(-2px);
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-    <!-- Header -->
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <!-- Welcome Header -->
     <div class="pb-5 border-b border-gray-200">
-        <h1 class="text-2xl font-semibold text-gray-900">Student Dashboard</h1>
-        <p class="mt-2 text-sm text-gray-500">View your attendance and module information</p>
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900">Welcome, {{ request.user.get_full_name|default:request.user.username }}!</h1>
+                <p class="mt-1 text-sm text-gray-500">Here's your attendance overview</p>
+            </div>
+            <div class="mt-3 sm:mt-0">
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                    {{ now|date:"F j, Y" }}
+                </span>
+            </div>
+        </div>
     </div>
+
+    <!-- Stats Overview -->
+    <div class="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+        <!-- Enrolled Modules -->
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="px-4 py-5 sm:p-6">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 bg-blue-500 rounded-md p-3">
+                        <i class="fas fa-book text-white text-xl"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dt class="text-sm font-medium text-gray-500 truncate">Enrolled Modules</dt>
+                        <dd class="flex items-baseline">
+                            <div class="text-2xl font-semibold text-gray-900">{{ modules|length }}</div>
+                        </dd>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Overall Attendance -->
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="px-4 py-5 sm:p-6">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 bg-green-500 rounded-md p-3">
+                        <i class="fas fa-clipboard-check text-white text-xl"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dt class="text-sm font-medium text-gray-500 truncate">Overall Attendance</dt>
+                        <dd class="flex items-baseline">
+                            <div class="text-2xl font-semibold text-gray-900">
+                                {% if overall_attendance is not None %}
+                                    {{ overall_attendance|floatformat:1 }}%
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </div>
+                        </dd>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Classes Attended -->
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="px-4 py-5 sm:p-6">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 bg-purple-500 rounded-md p-3">
+                        <i class="fas fa-user-check text-white text-xl"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dt class="text-sm font-medium text-gray-500 truncate">Classes Attended</dt>
+                        <dd class="text-2xl font-semibold text-gray-900">
+                            {{ total_attended }}
+                        </dd>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Next Class -->
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="px-4 py-5 sm:p-6">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 bg-yellow-500 rounded-md p-3">
+                        <i class="fas fa-calendar-alt text-white text-xl"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dt class="text-sm font-medium text-gray-500 truncate">Next Class</dt>
+                        <dd class="text-sm font-medium text-gray-900 truncate">
+                            {% if next_session %}
+                                {{ next_session|date:"M d, H:i" }}
+                            {% else %}
+                                No upcoming classes
+                            {% endif %}
+                        </dd>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active QR Codes -->
+    {% if active_qrcodes %}
+    <div class="mt-8">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-lg font-semibold text-gray-900">Active Attendance Codes</h2>
+            <span class="text-sm text-gray-500">Expire in next 15 minutes</span>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {% for qrcode in active_qrcodes %}
+            {% with remaining_minutes=qrcode.get_remaining_minutes %}
+            <div class="qr-code-card bg-white rounded-lg shadow overflow-hidden {% if remaining_minutes <= 0 %}expired{% elif remaining_minutes < 5 %}expiring-soon{% endif %}">
+                <div class="p-5">
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1">
+                            <h3 class="text-lg font-semibold text-gray-900">{{ qrcode.module.name }}</h3>
+                            <p class="text-sm text-gray-500">{{ qrcode.module.code }}</p>
+                            <div class="mt-2 flex items-center text-sm text-gray-600">
+                                <i class="fas fa-user-tie mr-1"></i>
+                                <span>{{ qrcode.lecturer.get_full_name|default:qrcode.lecturer.username }}</span>
+                            </div>
+                        </div>
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium {% if remaining_minutes <= 0 %}bg-red-100 text-red-800{% elif remaining_minutes < 5 %}bg-yellow-100 text-yellow-800{% else %}bg-green-100 text-green-800{% endif %}">
+                            {% if remaining_minutes <= 0 %}
+                                Expired
+                            {% else %}
+                                {{ qrcode.get_remaining_time }} left
+                            {% endif %}
+                        </span>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <div class="text-sm text-gray-600 space-y-1">
+                            <div class="flex justify-between">
+                                <span class="text-gray-500">Session:</span>
+                                <span class="font-medium">{{ qrcode.session_date|date:"M d, Y H:i" }}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-500">Expires:</span>
+                                <span class="font-medium">{{ qrcode.session_date|timeuntil:now }}</span>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4">
+                            <button 
+                                onclick="submitAttendance('{{ qrcode.id }}')" 
+                                class="w-full flex justify-center items-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white {% if remaining_minutes <= 0 %}bg-gray-400 cursor-not-allowed{% else %}bg-blue-600 hover:bg-blue-700{% endif %} focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                                {% if remaining_minutes <= 0 %}disabled{% endif %}>
+                                {% if remaining_minutes <= 0 %}
+                                    <i class="fas fa-times-circle mr-2"></i> Expired
+                                {% else %}
+                                    <i class="fas fa-qrcode mr-2"></i> Submit Attendance
+                                {% endif %}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endwith %}
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
 
     <!-- Stats Cards -->
     <div class="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -44,7 +225,7 @@
                             <dd class="flex items-baseline">
                                 <div class="text-2xl font-semibold text-gray-900">
                                     {% if attendance_stats %}
-                                        {{ attendance_stats.values()|map(attribute='percentage')|sum / attendance_stats.values()|length|floatformat:1 }}%
+                                        {{ overall_attendance|floatformat:1 }}%
                                     {% else %}
                                         N/A
                                     {% endif %}
@@ -224,8 +405,128 @@
     </div>
 </div>
 
+{% endblock %}
+
 {% block extra_js %}
 <script>
+    // Function to get user's current location
+    function getLocation() {
+        return new Promise((resolve, reject) => {
+            if (!navigator.geolocation) {
+                reject('Geolocation is not supported by your browser');
+            } else {
+                navigator.geolocation.getCurrentPosition(
+                    position => {
+                        resolve({
+                            latitude: position.coords.latitude,
+                            longitude: position.coords.longitude,
+                            accuracy: position.coords.accuracy
+                        });
+                    },
+                    error => {
+                        let errorMessage = 'Unable to retrieve your location';
+                        switch(error.code) {
+                            case error.PERMISSION_DENIED:
+                                errorMessage = 'Location access was denied';
+                                break;
+                            case error.POSITION_UNAVAILABLE:
+                                errorMessage = 'Location information is unavailable';
+                                break;
+                            case error.TIMEOUT:
+                                errorMessage = 'The request to get location timed out';
+                                break;
+                        }
+                        reject(errorMessage);
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 0
+                    }
+                );
+            }
+        });
+    }
+
+    // Function to show authentication modal
+    async function showAuthModal(qrcodeId) {
+        try {
+            const position = await getLocation();
+            
+            // Show password prompt
+            const password = prompt('Please enter your password to verify your identity:');
+            if (!password) return;
+
+            // Submit the attendance
+            submitAttendance(qrcodeId, password, position.latitude, position.longitude);
+        } catch (error) {
+            alert('Error: ' + error);
+        }
+    }
+
+    // Function to submit attendance
+    async function submitAttendance(qrcodeId, password = null, latitude = null, longitude = null) {
+        try {
+            // If password is not provided, show auth modal
+            if (!password) {
+                showAuthModal(qrcodeId);
+                return;
+            }
+
+            const submitBtn = document.querySelector(`button[onclick*="${qrcodeId}"]`);
+            const originalText = submitBtn.innerHTML;
+            
+            // Disable button and show loading state
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Submitting...';
+            submitBtn.classList.add('opacity-75');
+
+            const response = await fetch(`/dashboard/submit-attendance/${qrcodeId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    password: password,
+                    latitude: latitude,
+                    longitude: longitude,
+                    device_info: {
+                        user_agent: navigator.userAgent,
+                        platform: navigator.platform
+                    }
+                })
+            });
+
+            const data = await response.json();
+            
+            if (response.ok) {
+                // Show success message
+                alert('Attendance recorded successfully!');
+                // Reload the page to update the UI
+                window.location.reload();
+            } else {
+                // Show error message
+                alert('Error: ' + (data.message || 'Failed to record attendance'));
+                // Re-enable button
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+                submitBtn.classList.remove('opacity-75');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('An error occurred while submitting attendance');
+            // Re-enable button
+            const submitBtn = document.querySelector(`button[onclick*="${qrcodeId}"]`);
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = 'Submit Attendance';
+                submitBtn.classList.remove('opacity-75');
+            }
+        }
+    }
+
+
     // Initialize progress bars
     document.addEventListener('DOMContentLoaded', function() {
         const progressBars = document.querySelectorAll('.progress-bar');
@@ -246,5 +547,10 @@
             }
         });
     });
+    
+    // Auto-refresh the page every 30 seconds to check for new QR codes
+    setTimeout(() => {
+        window.location.reload();
+    }, 30000);
 </script>
 {% endblock %}
