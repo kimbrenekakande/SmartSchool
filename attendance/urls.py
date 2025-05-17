@@ -1,9 +1,12 @@
 from django.urls import path
 from . import views
+from .test_views import test_view
+from .simple_views import simple_test
 
 app_name = 'attendance'
 
 urlpatterns = [
+    path('', views.login_view, name='login'),  # Make login the root URL
     path('login/', views.login_view, name='login'),
     path('logout/', views.logout_view, name='logout'),
     path('generate/', views.generate_qr, name='generate_qr'),
@@ -16,4 +19,6 @@ urlpatterns = [
     path('student/scan/', views.student_scan, name='student_scan'),
     path('scan/<str:qr_code>/', views.scan_qr_code, name='scan_qr_code'),
     path('attendance/<int:module_id>/', views.attendance_report, name='attendance_report'),
+    path('test/', test_view, name='test_view'),
+    path('simple/', simple_test, name='simple_test'),
 ]

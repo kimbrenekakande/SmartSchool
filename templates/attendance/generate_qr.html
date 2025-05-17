@@ -3,31 +3,32 @@
 {% block title %}QR Code Generator - Smart School Attendance{% endblock %}
 
 {% block content %}
+<div class="space-y-6">
     <!-- QR Code Stats -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div class="card">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="bg-white p-6 rounded-lg shadow">
             <h2 class="text-lg font-semibold mb-2">Total QR Codes</h2>
-            <p class="text-3xl font-bold">{{ total_qrcodes }}</p>
+            <p class="text-3xl font-bold">{{ total_qrcodes|default:"0" }}</p>
         </div>
-        <div class="card">
+        <div class="bg-white p-6 rounded-lg shadow">
             <h2 class="text-lg font-semibold mb-2">Active QR Codes</h2>
-            <p class="text-3xl font-bold text-green-500">{{ active_qrcodes }}</p>
+            <p class="text-3xl font-bold text-green-500">{{ active_qrcodes|default:"0" }}</p>
         </div>
-        <div class="card">
+        <div class="bg-white p-6 rounded-lg shadow">
             <h2 class="text-lg font-semibold mb-2">Expired QR Codes</h2>
-            <p class="text-3xl font-bold text-yellow-500">{{ expired_qrcodes }}</p>
+            <p class="text-3xl font-bold text-yellow-500">{{ expired_qrcodes|default:"0" }}</p>
         </div>
     </div>
 
     <!-- QR Code Generator -->
-    <div class="card">
-        <h3 class="font-semibold mb-4">Generate New QR Code</h3>
+    <div class="bg-white p-6 rounded-lg shadow">
+        <h3 class="text-lg font-semibold mb-4">Generate New QR Code</h3>
         <form method="POST" action="{% url 'attendance:generate_qr' %}" class="space-y-4">
             {% csrf_token %}
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <label for="module" class="block text-sm font-medium">Module</label>
-                    <select id="module" name="module" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 focus:ring-blue-500 focus:border-blue-500">
+                    <label for="module" class="block text-sm font-medium text-gray-700">Module</label>
+                    <select id="module" name="module" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
                         <option value="">Select a module</option>
                         {% for module in modules %}
                         <option value="{{ module.id }}">{{ module.code }} - {{ module.name }}</option>
@@ -35,8 +36,8 @@
                     </select>
                 </div>
                 <div>
-                    <label for="expiration" class="block text-sm font-medium">Expiration Time</label>
-                    <select id="expiration" name="expiration" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 focus:ring-blue-500 focus:border-blue-500">
+                    <label for="expiration" class="block text-sm font-medium text-gray-700">Expiration Time</label>
+                    <select id="expiration" name="expiration" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
                         <option value="15">15 minutes</option>
                         <option value="30">30 minutes</option>
                         <option value="60" selected>1 hour</option>
@@ -45,79 +46,108 @@
                     </select>
                 </div>
             </div>
-            <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Generate QR Code</button>
+            <div class="pt-2">
+                <button type="submit" class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    Generate QR Code
+                </button>
+            </div>
         </form>
     </div>
 
     <!-- Module Table -->
-    <div class="card">
-        <h3 class="font-semibold mb-4">Modules</h3>
-        <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
-                <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">QR Code</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time Remaining</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-                {% for module in modules %}
-                <tr>
-                    <td>{{ module.code }}</td>
-                    <td>{{ module.name }}</td>
-                    <td>
-                        {% with latest_qr=module.qrcodes.first %}
-                            {% if latest_qr %}
-                                <div class="text-sm text-gray-500">{{ latest_qr.qr_code }}</div>
-                                <button onclick="copyQR('{{ latest_qr.qr_code }}')" class="text-blue-600 hover:text-blue-800">Copy</button>
-                            {% endif %}
-                        {% endwith %}
-                    </td>
-                    <td>
-                        {% with latest_qr=module.qrcodes.first %}
-                            {% if latest_qr %}
-                                {% if latest_qr.is_active %}
-                                    <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Active</span>
+    <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+        <div class="px-6 py-5 border-b border-gray-200">
+            <h3 class="text-lg font-medium text-gray-900">Modules</h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">QR Code</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time Remaining</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for module in modules %}
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ module.code }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ module.name }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {% with latest_qr=module.qrcodes.first %}
+                                {% if latest_qr %}
+                                    <div class="text-sm text-gray-900">{{ latest_qr.qr_code|truncatechars:20 }}</div>
+                                    <button onclick="copyQR('{{ latest_qr.qr_code }}')" class="text-blue-600 hover:text-blue-800 text-xs">
+                                        Copy
+                                    </button>
                                 {% else %}
-                                    <span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">Expired</span>
+                                    <span class="text-sm text-gray-500">No QR code</span>
                                 {% endif %}
-                            {% endif %}
-                        {% endwith %}
-                    </td>
-                    <td>
-                        {% with latest_qr=module.qrcodes.first %}
-                            {% if latest_qr %}
-                                <span class="text-sm text-gray-500">{{ latest_qr.time_remaining }}</span>
-                            {% endif %}
-                        {% endwith %}
-                    </td>
-                    <td>
-                        <form method="POST" action="{% url 'attendance:generate_qr' %}" class="inline">
-                            {% csrf_token %}
-                            <input type="hidden" name="module" value="{{ module.id }}">
-                            <button type="submit" class="px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700">Generate</button>
-                        </form>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+                            {% endwith %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% with latest_qr=module.qrcodes.first %}
+                                {% if latest_qr %}
+                                    {% if latest_qr.is_active %}
+                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Active</span>
+                                    {% else %}
+                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Expired</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-sm text-gray-500">-</span>
+                                {% endif %}
+                            {% endwith %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {% with latest_qr=module.qrcodes.first %}
+                                {% if latest_qr %}
+                                    {{ latest_qr.time_remaining|default:"-" }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            {% endwith %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <form method="POST" action="{% url 'attendance:generate_qr' %}" class="inline">
+                                {% csrf_token %}
+                                <input type="hidden" name="module" value="{{ module.id }}">
+                                <button type="submit" class="text-blue-600 hover:text-blue-900">Generate</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="px-6 py-4 text-center text-sm text-gray-500">
+                            No modules found.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
     function copyQR(qrCode) {
         navigator.clipboard.writeText(qrCode).then(() => {
-            alert('QR code copied to clipboard!');
+            // Show a simple toast notification
+            const toast = document.createElement('div');
+            toast.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded shadow-lg';
+            toast.textContent = 'QR code copied to clipboard!';
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.remove();
+            }, 3000);
         }).catch(err => {
             console.error('Failed to copy QR code:', err);
             alert('Failed to copy QR code. Please try again.');
         });
     }
 </script>
-{% endblock %}
 {% endblock %}
