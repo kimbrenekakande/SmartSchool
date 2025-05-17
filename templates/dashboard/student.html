@@ -1,0 +1,250 @@
+{% extends 'base.html' %}
+
+{% block title %}Student Dashboard - Smart School Attendance{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <!-- Header -->
+    <div class="pb-5 border-b border-gray-200">
+        <h1 class="text-2xl font-semibold text-gray-900">Student Dashboard</h1>
+        <p class="mt-2 text-sm text-gray-500">View your attendance and module information</p>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <!-- Total Modules Card -->
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="px-4 py-5 sm:p-6">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 bg-blue-500 rounded-md p-3">
+                        <i class="fas fa-book text-white text-xl"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Enrolled Modules</dt>
+                            <dd class="flex items-baseline">
+                                <div class="text-2xl font-semibold text-gray-900">{{ modules|length }}</div>
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Overall Attendance Card -->
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="px-4 py-5 sm:p-6">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 bg-green-500 rounded-md p-3">
+                        <i class="fas fa-clipboard-check text-white text-xl"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Overall Attendance</dt>
+                            <dd class="flex items-baseline">
+                                <div class="text-2xl font-semibold text-gray-900">
+                                    {% if attendance_stats %}
+                                        {{ attendance_stats.values()|map(attribute='percentage')|sum / attendance_stats.values()|length|floatformat:1 }}%
+                                    {% else %}
+                                        N/A
+                                    {% endif %}
+                                </div>
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Next Class Card -->
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="px-4 py-5 sm:p-6">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 bg-purple-500 rounded-md p-3">
+                        <i class="fas fa-calendar-alt text-white text-xl"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Next Class</dt>
+                            <dd class="text-sm font-medium text-gray-900 truncate">
+                                {% if modules %}
+                                    {{ modules.0.name }}
+                                {% else %}
+                                    No upcoming classes
+                                {% endif %}
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modules and Attendance -->
+    <div class="mt-8">
+        <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+            <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">My Modules</h3>
+                <p class="mt-1 text-sm text-gray-500">Your enrolled modules and attendance status</p>
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Module</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sessions</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Attended</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Attendance</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for module, stats in attendance_stats.items %}
+                        <tr>
+                            <td class="px-6 py-4">
+                                <div class="text-sm font-medium text-gray-900">{{ module.name }}</div>
+                                <div class="text-sm text-gray-500">{{ module.code }}</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {{ stats.total_sessions }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {{ stats.attended }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                    <div class="h-2.5 rounded-full progress-bar" 
+                                         data-percentage="{{ stats.percentage }}"
+                                         data-module="{{ module.id }}"></div>
+                                </div>
+                                <div class="text-right text-xs text-gray-500 mt-1">{{ stats.percentage|floatformat:1 }}%</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                {% if stats.percentage >= module.attendance_threshold %}
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                    On Track
+                                </span>
+                                {% else %}
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-amber-100 text-amber-800">
+                                    Needs Improvement
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <a href="{% url 'attendance:scan_qr' %}" class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                    <i class="fas fa-qrcode mr-1"></i> Scan QR
+                                </a>
+                                <a href="#" class="ml-2 inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                    <i class="fas fa-chart-bar mr-1"></i> Details
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="px-6 py-4 text-center text-sm text-gray-500">
+                                You are not enrolled in any modules yet.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <!-- Scan QR Code Card -->
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="px-4 py-5 sm:p-6">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 bg-blue-100 rounded-md p-3">
+                        <i class="fas fa-qrcode text-blue-600 text-xl"></i>
+                    </div>
+                    <div class="ml-5">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900">Mark Attendance</h3>
+                        <div class="mt-2">
+                            <p class="text-sm text-gray-500">Scan a QR code to mark your attendance for the current class.</p>
+                        </div>
+                        <div class="mt-4">
+                            <a href="{% url 'attendance:scan_qr' %}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                <i class="fas fa-camera mr-2"></i> Scan QR Code
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- View Schedule Card -->
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="px-4 py-5 sm:p-6">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 bg-green-100 rounded-md p-3">
+                        <i class="fas fa-calendar-day text-green-600 text-xl"></i>
+                    </div>
+                    <div class="ml-5">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900">Class Schedule</h3>
+                        <div class="mt-2">
+                            <p class="text-sm text-gray-500">View your class schedule and upcoming sessions.</p>
+                        </div>
+                        <div class="mt-4">
+                            <a href="#" class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                <i class="far fa-calendar-alt mr-2"></i> View Schedule
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Contact Lecturer Card -->
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="px-4 py-5 sm:p-6">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 bg-purple-100 rounded-md p-3">
+                        <i class="fas fa-envelope text-purple-600 text-xl"></i>
+                    </div>
+                    <div class="ml-5">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900">Contact Lecturer</h3>
+                        <div class="mt-2">
+                            <p class="text-sm text-gray-500">Need help? Send a message to your lecturer.</p>
+                        </div>
+                        <div class="mt-4">
+                            <a href="#" class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                <i class="far fa-envelope mr-2"></i> Send Message
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+    // Initialize progress bars
+    document.addEventListener('DOMContentLoaded', function() {
+        const progressBars = document.querySelectorAll('.progress-bar');
+        
+        progressBars.forEach(bar => {
+            const percentage = parseFloat(bar.dataset.percentage);
+            
+            // Set width
+            bar.style.width = `${percentage}%`;
+            
+            // Set color based on percentage
+            if (percentage >= 75) {
+                bar.classList.add('bg-green-500');
+            } else if (percentage >= 50) {
+                bar.classList.add('bg-yellow-500');
+            } else {
+                bar.classList.add('bg-red-500');
+            }
+        });
+    });
+</script>
+{% endblock %}

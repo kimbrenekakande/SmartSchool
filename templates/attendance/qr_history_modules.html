@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+
+{% block title %}QR Code History - Select Module{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-7xl mx-auto">
+        <div class="md:flex md:items-center md:justify-between mb-8">
+            <div class="flex-1 min-w-0">
+                <h2 class="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
+                    QR Code History
+                </h2>
+                <p class="mt-1 text-sm text-gray-500">
+                    Select a module to view its QR code history
+                </p>
+            </div>
+        </div>
+
+        <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+            <div class="px-4 py-5 sm:p-6">
+                {% if modules %}
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {% for module in modules %}
+                            <a href="{% url 'attendance:qr_history_module' module.id %}" 
+                               class="group block p-6 bg-white border border-gray-200 rounded-lg shadow hover:bg-gray-50 transition-colors">
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0 h-10 w-10 rounded-md bg-blue-500 flex items-center justify-center">
+                                        <i class="fas fa-book text-white"></i>
+                                    </div>
+                                    <div class="ml-4">
+                                        <h3 class="text-lg font-medium text-gray-900 group-hover:text-blue-600">
+                                            {{ module.name }}
+                                        </h3>
+                                        <p class="text-sm text-gray-500">
+                                            {{ module.code }}
+                                        </p>
+                                    </div>
+                                </div>
+                            </a>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-12">
+                        <i class="fas fa-inbox text-4xl text-gray-300 mb-4"></i>
+                        <h3 class="mt-2 text-sm font-medium text-gray-900">No modules found</h3>
+                        <p class="mt-1 text-sm text-gray-500">
+                            You don't have any modules assigned to you yet.
+                        </p>
+                        <div class="mt-6">
+                            <a href="{% url 'dashboard:index' %}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                <i class="fas fa-home mr-2"></i> Back to Dashboard
+                            </a>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

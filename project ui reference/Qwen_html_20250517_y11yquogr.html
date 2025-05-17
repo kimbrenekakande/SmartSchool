@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Lecturer Dashboard</title>
+  <script src="https://cdn.tailwindcss.com "></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter :wght@400;600&display=swap" rel="stylesheet">
+  <style> body { font-family: 'Inter', sans-serif; } </style>
+</head>
+<body class="bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-white min-h-screen">
+  <!-- Header -->
+  <header class="bg-white shadow-sm p-4 flex justify-between items-center dark:bg-gray-800">
+    <div class="flex items-center gap-2">
+      <img src="https://via.placeholder.com/40 " alt="Logo" class="h-10 w-10 rounded-full">
+      <h1 class="text-xl font-bold text-blue-600">Lecturer Dashboard</h1>
+    </div>
+    <div class="flex gap-4">
+      <button class="p-2 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600" aria-label="Notifications">
+        🔔
+      </button>
+      <div class="w-8 h-8 bg-blue-500 rounded-full"></div>
+    </div>
+  </header>
+
+  <!-- Sidebar + Content -->
+  <div class="flex">
+    <!-- Sidebar -->
+    <aside class="w-64 bg-white shadow-md p-4 hidden md:block dark:bg-gray-800">
+      <nav class="space-y-2">
+        <a href="#" class="block p-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700">My Classes</a>
+        <a href="#" class="block p-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700">Generate QR</a>
+        <a href="#" class="block p-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700">View Attendance</a>
+      </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 p-6 space-y-6">
+      <!-- Current Module Cards -->
+      <section class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="bg-white p-4 rounded shadow dark:bg-gray-800">
+          <h2 class="font-semibold mb-2">Mathematics 101</h2>
+          <p class="text-sm text-gray-500 dark:text-gray-400">Today at 10:00 AM</p>
+          <button class="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+            Generate QR Code
+          </button>
+          <p class="text-xs mt-2 text-gray-500 dark:text-gray-400">Expires in 10 mins</p>
+        </div>
+        <div class="bg-white p-4 rounded shadow dark:bg-gray-800">
+          <h2 class="font-semibold mb-2">Physics Lab</h2>
+          <p class="text-sm text-gray-500 dark:text-gray-400">Today at 2:00 PM</p>
+          <button class="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+            Generate QR Code
+          </button>
+          <p class="text-xs mt-2 text-gray-500 dark:text-gray-400">Expires in 10 mins</p>
+        </div>
+      </section>
+
+      <!-- Attendance Table -->
+      <section class="bg-white p-4 rounded shadow dark:bg-gray-800 overflow-x-auto">
+        <h3 class="font-semibold mb-4">Recent Class Attendance</h3>
+        <table class="min-w-full table-auto">
+          <thead>
+            <tr class="text-left">
+              <th class="pb-2">Student</th>
+              <th class="pb-2">Status</th>
+              <th class="pb-2">Time</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Jane Doe</td><td class="text-green-500">Present</td><td>10:02 AM</td></tr>
+            <tr><td>John Smith</td><td class="text-red-500">Absent</td><td>-</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- Pie Chart -->
+      <section class="bg-white p-4 rounded shadow dark:bg-gray-800">
+        <h3 class="font-semibold mb-2">Class Attendance Rate</h3>
+        <div class="h-48 bg-gray-200 rounded dark:bg-gray-700 flex items-center justify-center">
+          Pie Chart Placeholder
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

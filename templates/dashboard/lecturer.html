@@ -1,0 +1,480 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Lecturer Dashboard - Smart School Attendance{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Custom styles for the lecturer dashboard */
+    .dashboard-card {
+        background-color: white;
+        border-radius: 0.75rem;
+        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        border: 1px solid #f3f4f6;
+        transition: all 0.3s ease;
+    }
+    .dashboard-card:hover {
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        border-color: #e0f2fe;
+    }
+    
+    .nav-link {
+        position: relative;
+        padding: 0.75rem 1rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+        border-radius: 0.5rem;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        color: #6b7280;
+    }
+    .nav-link:hover {
+        background-color: #f0f9ff;
+        color: #2563eb;
+    }
+    .nav-link.active {
+        background-color: #f0f9ff;
+        color: #2563eb;
+        font-weight: 600;
+    }
+    .nav-link.active:after {
+        content: '';
+        position: absolute;
+        right: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 0.25rem;
+        height: 1.5rem;
+        background-color: #2563eb;
+        border-top-left-radius: 0.25rem;
+        border-bottom-left-radius: 0.25rem;
+    }
+    
+    .stat-card {
+        padding: 1.5rem;
+        border-radius: 0.75rem;
+        background: linear-gradient(135deg, #f0f9ff 0%, white 100%);
+        border: 1px solid #e0f2fe;
+    }
+    
+    .module-card {
+        transition: all 0.3s ease;
+    }
+    .module-card:hover {
+        transform: translateY(-0.25rem);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50" x-data="{ activeSection: 'overview' }">
+    <!-- Page Header -->
+    <div class="bg-white shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between py-6">
+                <div class="flex-1 min-w-0">
+                    <h1 class="text-2xl font-bold text-gray-900">Lecturer Dashboard</h1>
+                    <p class="mt-1 text-sm text-gray-500">Manage your modules, track attendance, and view reports</p>
+                </div>
+                <div class="mt-4 flex md:mt-0 md:ml-4">
+                    <button type="button" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        <i class="fas fa-calendar-alt mr-2 text-gray-400"></i>
+                        Calendar
+                    </button>
+                    <button type="button" class="ml-3 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        <i class="fas fa-plus mr-2"></i>
+                        New Session
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Desktop Navigation -->
+            <div class="border-t border-gray-200">
+                <nav class="flex space-x-1 overflow-x-auto" aria-label="Tabs">
+                    <a href="#overview" 
+                       @click="activeSection = 'overview'"
+                       :class="{ 'active': activeSection === 'overview', 'text-gray-500 hover:text-gray-700': activeSection !== 'overview' }"
+                       class="nav-link">
+                        <i class="fas fa-home mr-2"></i> Overview
+                    </a>
+                    <a href="#modules" 
+                       @click="activeSection = 'modules'"
+                       :class="{ 'active': activeSection === 'modules', 'text-gray-500 hover:text-gray-700': activeSection !== 'modules' }"
+                       class="nav-link">
+                        <i class="fas fa-book mr-2"></i> Your Modules
+                    </a>
+                    <a href="#attendance" 
+                       @click="activeSection = 'attendance'"
+                       :class="{ 'active': activeSection === 'attendance', 'text-gray-500 hover:text-gray-700': activeSection !== 'attendance' }"
+                       class="nav-link">
+                        <i class="fas fa-user-check mr-2"></i> Attendance
+                    </a>
+                    <a href="#reports" 
+                       @click="activeSection = 'reports'"
+                       :class="{ 'active': activeSection === 'reports', 'text-gray-500 hover:text-gray-700': activeSection !== 'reports' }"
+                       class="nav-link">
+                        <i class="fas fa-chart-bar mr-2"></i> Reports
+                    </a>
+                </nav>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Overview Section -->
+        <section id="overview" class="mb-12">
+            <h2 class="text-xl font-semibold text-gray-800 mb-6 flex items-center">
+                <i class="fas fa-tachometer-alt mr-2 text-blue-600"></i> Overview
+            </h2>
+            
+            <!-- Stats Grid -->
+            <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+                <!-- Total Modules -->
+                <div class="stat-card">
+                    <div class="flex items-center">
+                        <div class="p-3 rounded-lg bg-blue-100 text-blue-600 mr-4">
+                            <i class="fas fa-book text-xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">Total Modules</p>
+                            <p class="text-2xl font-semibold text-gray-900">{{ modules|length }}</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Active Sessions -->
+                <div class="stat-card">
+                    <div class="flex items-center">
+                        <div class="p-3 rounded-lg bg-green-100 text-green-600 mr-4">
+                            <i class="fas fa-qrcode text-xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">Active Sessions</p>
+                            <p class="text-2xl font-semibold text-gray-900">2</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Today's Attendance -->
+                <div class="stat-card">
+                    <div class="flex items-center">
+                        <div class="p-3 rounded-lg bg-purple-100 text-purple-600 mr-4">
+                            <i class="fas fa-user-check text-xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">Today's Attendance</p>
+                            <p class="text-2xl font-semibold text-gray-900">87%</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Pending Actions -->
+                <div class="stat-card">
+                    <div class="flex items-center">
+                        <div class="p-3 rounded-lg bg-yellow-100 text-yellow-600 mr-4">
+                            <i class="fas fa-bell text-xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">Pending Actions</p>
+                            <p class="text-2xl font-semibold text-gray-900">3</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Quick Actions -->
+            <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                <!-- Manage Modules Card -->
+                <div class="dashboard-card overflow-hidden">
+                    <div class="p-6">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 bg-blue-100 p-3 rounded-lg">
+                                <i class="fas fa-book text-blue-600 text-xl"></i>
+                            </div>
+                            <div class="ml-4">
+                                <h3 class="text-lg font-medium text-gray-900">Manage Your Modules</h3>
+                                <p class="mt-1 text-sm text-gray-500">View and manage all your course modules in one place</p>
+                            </div>
+                        </div>
+                        <div class="mt-6">
+                            <a href="#modules" class="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-500">
+                                Go to Modules
+                                <i class="fas fa-arrow-right ml-2"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Track Attendance Card -->
+                <div class="dashboard-card overflow-hidden">
+                    <div class="p-6">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 bg-green-100 p-3 rounded-lg">
+                                <i class="fas fa-user-check text-green-600 text-xl"></i>
+                            </div>
+                            <div class="ml-4">
+                                <h3 class="text-lg font-medium text-gray-900">Track Attendance</h3>
+                                <p class="mt-1 text-sm text-gray-500">Generate QR codes and monitor student attendance in real-time</p>
+                            </div>
+                        </div>
+                        <div class="mt-6">
+                            <a href="{% url 'attendance:generate_qr' %}" class="inline-flex items-center text-sm font-medium text-green-600 hover:text-green-500">
+                                Start Session
+                                <i class="fas fa-arrow-right ml-2"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- View Reports Card -->
+                <div class="dashboard-card overflow-hidden">
+                    <div class="p-6">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 bg-purple-100 p-3 rounded-lg">
+                                <i class="fas fa-chart-bar text-purple-600 text-xl"></i>
+                            </div>
+                            <div class="ml-4">
+                                <h3 class="text-lg font-medium text-gray-900">View Reports</h3>
+                                <p class="mt-1 text-sm text-gray-500">Generate and analyze attendance reports and statistics</p>
+                            </div>
+                        </div>
+                        <div class="mt-6">
+                            <a href="#reports" class="inline-flex items-center text-sm font-medium text-purple-600 hover:text-purple-500">
+                                View Analytics
+                                <i class="fas fa-arrow-right ml-2"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Modules Section -->
+        <section id="modules" class="mb-12 pt-12">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
+                <h2 class="text-xl font-semibold text-gray-800 mb-4 sm:mb-0 flex items-center">
+                    <i class="fas fa-book mr-2 text-blue-600"></i> Your Modules
+                </h2>
+                <a href="#" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    <i class="fas fa-plus mr-2"></i> Add New Module
+                </a>
+            </div>
+            
+            <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {% for module in modules %}
+                <div class="module-card bg-white overflow-hidden shadow rounded-lg">
+                    <div class="px-4 py-5 sm:p-6">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 bg-blue-500 rounded-md p-3">
+                                <i class="fas fa-book text-white text-xl"></i>
+                            </div>
+                            <div class="ml-4">
+                                <h3 class="text-lg font-medium text-gray-900">{{ module.name }}</h3>
+                                <p class="text-sm text-gray-500">{{ module.code }}</p>
+                            </div>
+                        </div>
+                        <div class="mt-4">
+                            <p class="text-sm text-gray-600">{{ module.description|default:"No description provided." }}</p>
+                        </div>
+                        <div class="mt-6 flex space-x-3">
+                            <a href="{% url 'attendance:generate_qr_for_module' module.id %}" class="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                <i class="fas fa-qrcode mr-2"></i> Generate QR
+                            </a>
+                            <a href="#" class="inline-flex items-center justify-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                <i class="fas fa-eye mr-2"></i> View
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 col-span-3">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-exclamation-triangle text-yellow-400"></i>
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-sm text-yellow-700">
+                                No modules found. <a href="#" class="font-medium text-yellow-700 underline hover:text-yellow-600">Create your first module</a> to get started.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <!-- Attendance Section -->
+        <section id="attendance" class="mb-12 pt-12">
+            <h2 class="text-xl font-semibold text-gray-800 mb-6 flex items-center">
+                <i class="fas fa-user-check mr-2 text-blue-600"></i> Recent Attendance
+            </h2>
+            
+            <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+                <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900">Today's Sessions</h3>
+                    <p class="mt-1 max-w-2xl text-sm text-gray-500">QR code sessions created today</p>
+                </div>
+                <div class="bg-white overflow-hidden">
+                    <div class="px-4 py-5 sm:p-6">
+                        <div class="text-center py-8">
+                            <i class="fas fa-qrcode text-4xl text-gray-300 mb-4"></i>
+                            <h3 class="mt-2 text-sm font-medium text-gray-900">No active sessions</h3>
+                            <p class="mt-1 text-sm text-gray-500">Get started by creating a new QR code session.</p>
+                            <div class="mt-6">
+                                <a href="{% url 'attendance:generate_qr' %}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                    <i class="fas fa-plus mr-2"></i> New Session
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Reports Section -->
+        <section id="reports" class="pt-12">
+            <h2 class="text-xl font-semibold text-gray-800 mb-6 flex items-center">
+                <i class="fas fa-chart-bar mr-2 text-blue-600"></i> Reports & Analytics
+            </h2>
+            
+            <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+                <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900">Attendance Overview</h3>
+                    <p class="mt-1 max-w-2xl text-sm text-gray-500">View and analyze attendance data</p>
+                </div>
+                <div class="px-4 py-5 sm:p-6">
+                    <div class="h-64 bg-gray-50 rounded-lg flex items-center justify-center">
+                        <div class="text-center">
+                            <i class="fas fa-chart-pie text-4xl text-gray-300 mb-4"></i>
+                            <h3 class="text-sm font-medium text-gray-900">No data available</h3>
+                            <p class="mt-1 text-sm text-gray-500">Generate attendance reports to view analytics.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+
+<!-- Add Alpine.js for interactivity -->
+<script src="https://cdn.jsdelivr.net/npm/alpinejs@2.8.2/dist/alpine.min.js" defer></script>
+
+<script>
+    // Smooth scrolling for anchor links
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function (e) {
+            e.preventDefault();
+            const target = document.querySelector(this.getAttribute('href'));
+            if (target) {
+                target.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                });
+            }
+        });
+    });
+
+    // Update active section on scroll
+    window.addEventListener('scroll', function() {
+        const sections = document.querySelectorAll('section[id]');
+        let current = '';
+        
+        sections.forEach(section => {
+            const sectionTop = section.offsetTop;
+            const sectionHeight = section.clientHeight;
+            if (pageYOffset >= sectionTop - 200) {
+                current = section.getAttribute('id');
+            }
+        });
+        
+        if (current) {
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.classList.remove('active');
+                link.classList.add('text-gray-500', 'hover:text-gray-700');
+                if (link.getAttribute('href') === `#${current}`) {
+                    link.classList.add('active', 'text-blue-600');
+                    link.classList.remove('text-gray-500', 'hover:text-gray-700');
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+<script>
+    // Smooth scrolling for anchor links
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function (e) {
+            e.preventDefault();
+            const targetId = this.getAttribute('href');
+            const targetElement = document.querySelector(targetId);
+            if (targetElement) {
+                window.scrollTo({
+                    top: targetElement.offsetTop - 20, // Offset for fixed header
+                    behavior: 'smooth'
+                });
+            }
+        });
+    });
+
+    // Update active section on scroll
+    window.addEventListener('scroll', function() {
+        const sections = ['overview', 'modules', 'attendance', 'reports'];
+        let currentSection = '';
+        
+        sections.forEach(section => {
+            const element = document.getElementById(section);
+            if (element) {
+                const rect = element.getBoundingClientRect();
+                if (rect.top <= 100 && rect.bottom >= 100) {
+                    currentSection = section;
+                }
+            }
+        });
+        
+        if (currentSection) {
+            document.querySelectorAll('nav a').forEach(link => {
+                link.classList.remove('border-blue-500', 'text-blue-600');
+                link.classList.add('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+            });
+            
+            const activeLink = document.querySelector(`nav a[href="#${currentSection}"]`);
+            if (activeLink) {
+                activeLink.classList.remove('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+                activeLink.classList.add('border-blue-500', 'text-blue-600');
+            }
+        }
+    });
+</script>
+<script>
+    // Initialize pie chart
+    const pieCtx = document.getElementById('attendancePieChart').getContext('2d');
+    new Chart(pieCtx, {
+        type: 'pie',
+        data: {
+            labels: ['Present', 'Absent'],
+            datasets: [{
+                data: [85, 15],
+                backgroundColor: ['rgb(59, 130, 246)', 'rgb(239, 68, 68)']
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'top',
+                },
+                title: {
+                    display: false
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}

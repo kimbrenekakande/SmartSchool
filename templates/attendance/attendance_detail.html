@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="bg-white shadow rounded-lg">
+        <div class="px-4 py-5 sm:p-6">
+            <div class="flex items-center justify-between">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">Attendance Detail</h3>
+                <a href="{% url 'attendance:attendance_report' module.id %}" class="text-sm text-blue-600 hover:text-blue-900">
+                    < Back to Attendance Report
+                </a>
+            </div>
+
+            <div class="mt-6">
+                <div class="bg-white shadow rounded-lg">
+                    <div class="px-4 py-5 sm:p-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="bg-blue-50 p-4 rounded-lg">
+                                <dt class="text-sm font-medium text-blue-600 truncate">Module</dt>
+                                <dd class="mt-1 text-sm text-gray-900">{{ module.code }} - {{ module.name }}</dd>
+                            </div>
+                            <div class="bg-green-50 p-4 rounded-lg">
+                                <dt class="text-sm font-medium text-green-600 truncate">QR Code</dt>
+                                <dd class="mt-1 text-sm text-gray-900">{{ qr.qr_code }}</dd>
+                            </div>
+                            <div class="bg-yellow-50 p-4 rounded-lg">
+                                <dt class="text-sm font-medium text-yellow-600 truncate">Session Date</dt>
+                                <dd class="mt-1 text-sm text-gray-900">{{ qr.session_date|date:"Y-m-d H:i:s" }}</dd>
+                            </div>
+                            <div class="bg-purple-50 p-4 rounded-lg">
+                                <dt class="text-sm font-medium text-purple-600 truncate">Attendance</dt>
+                                <dd class="mt-1 text-sm text-gray-900">
+                                    {{ present_students }}/{{ total_students }} students present
+                                </dd>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6">
+                <div class="bg-white shadow rounded-lg">
+                    <div class="px-4 py-5 sm:p-6">
+                        <h4 class="text-sm font-medium text-gray-500 mb-4">Attendance Records</h4>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student Name</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student ID</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Scanned Time</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    {% for record in attendance_records %}
+                                    <tr>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ record.student.get_full_name }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ record.student.username }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            {{ record.scanned_time|date:"Y-m-d H:i:s" }}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Present</span>
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="4" class="px-6 py-4 text-center text-sm text-gray-500">
+                                            No attendance records found for this QR code.
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
