@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+
+{% block title %}Lecturer Dashboard - Smart School Attendance{% endblock %}
+
+{% block content %}
+    <!-- Current Module Cards -->
+    <section class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {% for module in modules %}
+        <div class="card">
+            <h2 class="font-semibold mb-2">{{ module.name }}</h2>
+            <p class="text-sm text-gray-500 dark:text-gray-400">{{ module.description }}</p>
+            <button class="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                Generate QR Code
+            </button>
+            <p class="text-xs mt-2 text-gray-500 dark:text-gray-400">Expires in 10 mins</p>
+        </div>
+        {% endfor %}
+    </section>
+
+    <!-- Attendance Table -->
+    <section class="card overflow-x-auto">
+        <h3 class="font-semibold mb-4">Recent Class Attendance</h3>
+        <table class="min-w-full">
+            <thead>
+                <tr class="text-left">
+                    <th class="pb-2">Student</th>
+                    <th class="pb-2">Status</th>
+                    <th class="pb-2">Time</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for qr in recent_qrcodes %}
+                <tr>
+                    <td>{{ qr.module.code }} - {{ qr.module.name }}</td>
+                    <td class="text-green-500">{% if qr.is_active %}Present{% else %}Absent{% endif %}</td>
+                    <td>{{ qr.session_date }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+
+    <!-- Pie Chart -->
+    <section class="card">
+        <h3 class="font-semibold mb-2">Class Attendance Rate</h3>
+        <div class="h-48 bg-gray-200 rounded dark:bg-gray-700 flex items-center justify-center">
+            <canvas id="attendancePieChart"></canvas>
+        </div>
+    </section>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Initialize pie chart
+    const pieCtx = document.getElementById('attendancePieChart').getContext('2d');
+    new Chart(pieCtx, {
+        type: 'pie',
+        data: {
+            labels: ['Present', 'Absent'],
+            datasets: [{
+                data: [85, 15],
+                backgroundColor: ['rgb(59, 130, 246)', 'rgb(239, 68, 68)']
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'top',
+                },
+                title: {
+                    display: false
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}
