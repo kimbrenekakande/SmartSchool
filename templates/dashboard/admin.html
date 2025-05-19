@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load humanize %}
+{% load math_filters %}
 
 {% block title %}Admin Dashboard - Smart School Attendance{% endblock %}
 
@@ -174,7 +175,7 @@
                 </div>
                 <div class="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
                     <p class="text-sm text-gray-500 dark:text-gray-400">Best Day</p>
-                    <p class="text-lg font-semibold text-green-600 dark:text-green-400">{{ daily_attendance|max|default:0|floatformat:1 }}%</p>
+                    <p class="text-lg font-semibold text-green-600 dark:text-green-400">{{ max_attendance|default:0|floatformat:1 }}%</p>
                     <p class="text-xs text-gray-500">Attendance Rate</p>
                 </div>
                 <div class="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
@@ -371,56 +372,104 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        // Color scheme
+        const colors = {
+            primary: {
+                50: '#eef2ff',
+                100: '#e0e7ff',
+                200: '#c7d2fe',
+                300: '#a5b4fc',
+                400: '#818cf8',
+                500: '#6366f1',
+                600: '#4f46e5',
+                700: '#4338ca',
+                800: '#3730a3',
+                900: '#312e81'
+            },
+            success: {
+                500: '#10b981',
+                600: '#059669',
+                700: '#047857'
+            },
+            warning: {
+                400: '#f59e0b',
+                500: '#f59e0b',
+                600: '#d97706'
+            },
+            danger: {
+                400: '#ef4444',
+                500: '#ef4444',
+                600: '#dc2626'
+            }
+        };
+
+        // Dark mode detection
+        const isDarkMode = document.documentElement.classList.contains('dark');
+        
+        // Chart defaults
+        Chart.defaults.font.family = 'Inter, system-ui, -apple-system, sans-serif';
+        Chart.defaults.color = isDarkMode ? '#9ca3af' : '#6b7280';
+        Chart.defaults.borderColor = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+
         // Format data from Django template
         const dateLabels = JSON.parse('{{ date_labels|safe|escapejs }}');
         const dailyAttendance = JSON.parse('{{ daily_attendance|safe|escapejs }}');
         const distributionLabels = JSON.parse('{{ attendance_distribution_labels|safe|escapejs }}');
         const distributionData = JSON.parse('{{ attendance_distribution_data|safe|escapejs }}');
-        const colors = [
-            'rgba(16, 185, 129, 0.8)',  // Green
-            'rgba(59, 130, 246, 0.8)',   // Blue
-            'rgba(245, 158, 11, 0.8)',   // Yellow
-            'rgba(239, 68, 68, 0.8)'     // Red
-        ];
 
         // Attendance Trends Chart
         const trendsCtx = document.getElementById('attendanceTrendsChart').getContext('2d');
-        new Chart(trendsCtx, {
+        const gradient = trendsCtx.createLinearGradient(0, 0, 0, 400);
+        gradient.addColorStop(0, 'rgba(99, 102, 241, 0.2)');
+        gradient.addColorStop(1, 'rgba(99, 102, 241, 0.02)');
+
+        const trendsChart = new Chart(trendsCtx, {
             type: 'line',
             data: {
                 labels: dateLabels,
                 datasets: [{
                     label: 'Attendance Rate',
                     data: dailyAttendance,
-                    borderColor: 'rgb(59, 130, 246)',
-                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    borderColor: colors.primary[500],
+                    backgroundColor: gradient,
                     borderWidth: 2,
-                    tension: 0.3,
+                    tension: 0.4,
                     fill: true,
-                    pointBackgroundColor: 'white',
+                    pointBackgroundColor: isDarkMode ? '#1f2937' : '#ffffff',
+                    pointBorderColor: colors.primary[500],
                     pointBorderWidth: 2,
-                    pointRadius: 4,
-                    pointHoverRadius: 6
+                    pointRadius: 3,
+                    pointHoverRadius: 5,
+                    pointHoverBorderWidth: 2
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                },
                 plugins: {
                     legend: {
                         display: false
                     },
                     tooltip: {
-                        backgroundColor: 'white',
-                        titleColor: '#1f2937',
-                        bodyColor: '#4b5563',
-                        borderColor: '#e5e7eb',
+                        backgroundColor: isDarkMode ? 'rgba(17, 24, 39, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+                        titleColor: isDarkMode ? '#f3f4f6' : '#111827',
+                        bodyColor: isDarkMode ? '#f3f4f6' : '#111827',
+                        borderColor: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
                         borderWidth: 1,
+                        titleFont: { size: 12, weight: '500' },
+                        bodyFont: { size: 14, weight: '600' },
                         padding: 12,
                         displayColors: false,
                         callbacks: {
                             label: function(context) {
                                 return ` ${context.parsed.y}% attendance`;
+                            },
+                            title: function(context) {
+                                return context[0].label;
                             }
                         }
                     }
@@ -430,18 +479,37 @@
                         beginAtZero: true,
                         max: 100,
                         grid: {
+                            color: isDarkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
                             drawBorder: false
+                        },
+                        border: {
+                            display: false
                         },
                         ticks: {
                             callback: function(value) {
                                 return value + '%';
-                            }
+                            },
+                            stepSize: 20,
+                            padding: 8
                         }
                     },
                     x: {
                         grid: {
-                            display: false
+                            display: false,
+                            drawBorder: false
+                        },
+                        ticks: {
+                            maxRotation: 0,
+                            padding: 10
                         }
+                    }
+                },
+                layout: {
+                    padding: {
+                        top: 5,
+                        right: 10,
+                        bottom: 5,
+                        left: 10
                     }
                 }
             }
@@ -449,83 +517,138 @@
 
 
         // Attendance Distribution Chart
-        const distributionCtx = document.getElementById('attendanceDistributionChart').getContext('2d');
-        new Chart(distributionCtx, {
+        const distCtx = document.getElementById('attendanceDistributionChart').getContext('2d');
+        const distChart = new Chart(distCtx, {
             type: 'doughnut',
             data: {
                 labels: distributionLabels,
                 datasets: [{
                     data: distributionData,
-                    backgroundColor: colors,
-                    borderWidth: 0,
-                    hoverOffset: 10
+                    backgroundColor: [
+                        colors.success[500],
+                        colors.primary[400],
+                        colors.warning[400],
+                        colors.danger[400]
+                    ],
+                    borderColor: isDarkMode ? '#1f2937' : '#ffffff',
+                    borderWidth: 2,
+                    borderRadius: 4,
+                    spacing: 2,
+                    hoverOffset: 8,
+                    hoverBorderColor: isDarkMode ? '#374151' : '#f3f4f6'
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
                 cutout: '70%',
+                radius: '90%',
                 plugins: {
                     legend: {
-                        position: 'bottom',
-                        labels: {
-                            padding: 20,
-                            usePointStyle: true,
-                            pointStyle: 'circle',
-                            font: {
-                                family: 'Inter',
-                                size: 12
-                            }
-                        }
+                        display: false
                     },
                     tooltip: {
-                        backgroundColor: 'white',
-                        titleColor: '#1f2937',
-                        bodyColor: '#4b5563',
-                        borderColor: '#e5e7eb',
+                        backgroundColor: isDarkMode ? 'rgba(17, 24, 39, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+                        titleColor: isDarkMode ? '#f3f4f6' : '#111827',
+                        bodyColor: isDarkMode ? '#f3f4f6' : '#111827',
+                        borderColor: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
                         borderWidth: 1,
-                        padding: 12,
-                        displayColors: true,
-                        usePointStyle: true,
+                        titleFont: { size: 12, weight: '500' },
+                        bodyFont: { size: 13, weight: '600' },
+                        padding: 10,
+                        displayColors: false,
                         callbacks: {
                             label: function(context) {
                                 const label = context.label || '';
                                 const value = context.raw || 0;
                                 const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                const percentage = Math.round((value / total) * 100);
-                                return ` ${label}: ${value} students (${percentage}%)`;
+                                const percentage = Math.round((value / total) * 100) || 0;
+                                return `${label}: ${value} student${value !== 1 ? 's' : ''} (${percentage}%)`;
                             }
                         }
                     }
+                },
+                animation: {
+                    animateScale: true,
+                    animateRotate: true
                 }
-            }
+            },
+            plugins: [{
+                id: 'doughnutCenterText',
+                beforeDraw(chart) {
+                    const width = chart.width,
+                          height = chart.height,
+                          ctx = chart.ctx;
+                    
+                    ctx.restore();
+                    const fontSize = (height / 8).toFixed(2);
+                    ctx.font = `600 ${fontSize}px Inter, system-ui, -apple-system, sans-serif`;
+                    ctx.textBaseline = 'middle';
+                    ctx.fillStyle = isDarkMode ? '#f3f4f6' : '#111827';
+                    
+                    const total = chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                    const text = total === 0 ? 'No Data' : `${total}`;
+                    const textX = Math.round((width - ctx.measureText(text).width) / 2);
+                    const textY = height / 2 - 5;
+                    
+                    ctx.fillText(text, textX, textY);
+                    
+                    // Add subtitle
+                    ctx.font = `500 ${(fontSize * 0.4).toFixed(2)}px Inter, system-ui, -apple-system, sans-serif`;
+                    ctx.fillStyle = isDarkMode ? '#9ca3af' : '#6b7280';
+                    
+                    const subtitle = total === 0 ? '' : 'Students';
+                    const subtextX = Math.round((width - ctx.measureText(subtitle).width) / 2);
+                    const subtextY = height / 2 + 15;
+                    
+                    ctx.fillText(subtitle, subtextX, subtextY);
+                    ctx.save();
+                }
+            }]
         });
 
-        // Add animation to stat cards on scroll
-        const observerOptions = {
-            threshold: 0.1,
-            rootMargin: '0px 0px -50px 0px'
-        };
-
+        // Add animation to stat cards when they come into view
         const observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
                 if (entry.isIntersecting) {
-                    entry.target.classList.add('animate-fade-in-up');
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
                     observer.unobserve(entry.target);
                 }
             });
-        }, observerOptions);
+        }, {
+            threshold: 0.1
+        });
 
         document.querySelectorAll('.stat-card').forEach((card) => {
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(10px)';
+            card.style.transition = 'opacity 0.4s ease-out, transform 0.4s ease-out';
             observer.observe(card);
         });
 
-        // Set progress bar widths
+        // Set progress bar widths with animation
         document.querySelectorAll('.progress-bar').forEach(bar => {
             const width = bar.getAttribute('data-width');
             if (width) {
-                bar.style.width = `${width}%`;
+                // Reset to 0 for animation
+                bar.style.width = '0%';
+                // Animate to actual width
+                setTimeout(() => {
+                    bar.style.transition = 'width 1s ease-out';
+                    bar.style.width = `${width}%`;
+                }, 100);
             }
+        });
+
+        // Handle window resize with debounce
+        let resizeTimer;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => {
+                trendsChart.resize();
+                distChart.resize();
+            }, 250);
         });
     });
 </script>

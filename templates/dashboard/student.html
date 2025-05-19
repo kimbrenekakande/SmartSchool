@@ -243,76 +243,6 @@
     </div>
     {% endif %}
 
-    <!-- Stats Cards -->
-    <div class="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        <!-- Total Modules Card -->
-        <div class="bg-white overflow-hidden shadow rounded-lg">
-            <div class="px-4 py-5 sm:p-6">
-                <div class="flex items-center">
-                    <div class="flex-shrink-0 bg-blue-500 rounded-md p-3">
-                        <i class="fas fa-book text-white text-xl"></i>
-                    </div>
-                    <div class="ml-5 w-0 flex-1">
-                        <dl>
-                            <dt class="text-sm font-medium text-gray-500 truncate">Enrolled Modules</dt>
-                            <dd class="flex items-baseline">
-                                <div class="text-2xl font-semibold text-gray-900">{{ modules|length }}</div>
-                            </dd>
-                        </dl>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Overall Attendance Card -->
-        <div class="bg-white overflow-hidden shadow rounded-lg">
-            <div class="px-4 py-5 sm:p-6">
-                <div class="flex items-center">
-                    <div class="flex-shrink-0 bg-green-500 rounded-md p-3">
-                        <i class="fas fa-clipboard-check text-white text-xl"></i>
-                    </div>
-                    <div class="ml-5 w-0 flex-1">
-                        <dl>
-                            <dt class="text-sm font-medium text-gray-500 truncate">Overall Attendance</dt>
-                            <dd class="flex items-baseline">
-                                <div class="text-2xl font-semibold text-gray-900">
-                                    {% if attendance_stats %}
-                                        {{ overall_attendance|floatformat:1 }}%
-                                    {% else %}
-                                        N/A
-                                    {% endif %}
-                                </div>
-                            </dd>
-                        </dl>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Next Class Card -->
-        <div class="bg-white overflow-hidden shadow rounded-lg">
-            <div class="px-4 py-5 sm:p-6">
-                <div class="flex items-center">
-                    <div class="flex-shrink-0 bg-purple-500 rounded-md p-3">
-                        <i class="fas fa-calendar-alt text-white text-xl"></i>
-                    </div>
-                    <div class="ml-5 w-0 flex-1">
-                        <dl>
-                            <dt class="text-sm font-medium text-gray-500 truncate">Next Class</dt>
-                            <dd class="text-sm font-medium text-gray-900 truncate">
-                                {% if modules %}
-                                    {{ modules.0.name }}
-                                {% else %}
-                                    No upcoming classes
-                                {% endif %}
-                            </dd>
-                        </dl>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Available Modules -->
     {% if available_modules %}
     <div class="mt-8">
@@ -449,29 +379,7 @@
     </div>
 
     <!-- Quick Actions -->
-    <div class="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        <!-- Scan QR Code Card -->
-        <div class="bg-white overflow-hidden shadow rounded-lg">
-            <div class="px-4 py-5 sm:p-6">
-                <div class="flex items-center">
-                    <div class="flex-shrink-0 bg-blue-100 rounded-md p-3">
-                        <i class="fas fa-qrcode text-blue-600 text-xl"></i>
-                    </div>
-                    <div class="ml-5">
-                        <h3 class="text-lg leading-6 font-medium text-gray-900">Mark Attendance</h3>
-                        <div class="mt-2">
-                            <p class="text-sm text-gray-500">Scan a QR code to mark your attendance for the current class.</p>
-                        </div>
-                        <div class="mt-4">
-                            <a href="{% url 'attendance:scan_qr' %}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                                <i class="fas fa-camera mr-2"></i> Scan QR Code
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
+    <div class="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2">
         <!-- View Schedule Card -->
         <div class="bg-white overflow-hidden shadow rounded-lg">
             <div class="px-4 py-5 sm:p-6">

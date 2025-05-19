@@ -1,0 +1,392 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load dashboard_extras %}
+
+{% block title %}Class Schedule - Smart School{% endblock %}
+
+{% block extra_css %}
+<style>
+    .schedule-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    .upcoming-classes {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 30px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .class-card {
+        border: 1px solid #e3e6f0;
+        border-radius: 0.35rem;
+        background-color: #fff;
+        transition: all 0.2s;
+        box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.1);
+    }
+
+    .class-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 0.5rem 2rem 0 rgba(58, 59, 69, 0.2);
+    }
+
+    .class-card .badge {
+        font-size: 0.75rem;
+        font-weight: 500;
+        padding: 0.35em 0.65em;
+    }
+    .class-card.soon {
+        border-left-color: #f6c23e;
+    }
+    .class-card.very-soon {
+        border-left-color: #e74a3b;
+    }
+    .class-time {
+        font-size: 0.9em;
+        color: #6c757d;
+    }
+    .countdown {
+        font-weight: bold;
+        margin-top: 5px;
+    }
+    .schedule-table {
+        background: white;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .schedule-table th {
+        background: #4e73df;
+        color: white;
+        padding: 15px;
+        text-align: center;
+    }
+    .schedule-table td {
+        padding: 15px;
+        border: 1px solid #e3e6f0;
+        vertical-align: top;
+    }
+    .time-slot {
+        font-weight: 600;
+        color: #5a5c69;
+        white-space: nowrap;
+        width: 80px;
+    }
+    .class-slot {
+        background-color: #f8f9fc;
+        border-left: 3px solid #4e73df;
+        transition: all 0.2s ease;
+        border-radius: 0.25rem;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.05);
+    }
+
+    .class-slot:hover {
+        background-color: #f1f3f9;
+        transform: translateX(2px);
+    }
+
+    .class-slot a:hover {
+        text-decoration: underline;
+    }
+
+    .current-time-highlight {
+        background-color: #e8f4fd !important;
+        border-left-color: #36b9cc !important;
+    }
+
+    .schedule-table {
+        table-layout: fixed;
+    }
+
+    .schedule-table th {
+        background-color: #f8f9fc;
+        font-weight: 600;
+        text-align: center;
+    }
+
+    .schedule-cell {
+        min-height: 100px;
+        vertical-align: top;
+        padding: 0.5rem !important;
+    }
+
+    .class-slot .btn-sm {
+        padding: 0.15rem 0.3rem;
+        font-size: 0.7rem;
+        line-height: 1;
+    }
+    .current-time {
+        position: absolute;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: #e74a3b;
+        z-index: 10;
+    }
+    .current-time:after {
+        content: '';
+        position: absolute;
+        top: -4px;
+        left: -4px;
+        width: 10px;
+        height: 10px;
+        background: #e74a3b;
+        border-radius: 50%;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="schedule-container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Class Schedule</h1>
+        <div class="text-muted">
+            <i class="fas fa-calendar-day"></i> {{ now|date:"l, F j, Y" }}
+        </div>
+    </div>
+
+    <!-- Upcoming Classes -->
+    <div class="upcoming-classes mb-4">
+        <h2 class="h5 mb-3">Upcoming Classes</h2>
+        <div class="row">
+            {% for class in next_classes %}
+            <div class="col-md-4 mb-4">
+                <div class="class-card {% if class.time_until <= 30 %}very-soon{% elif class.time_until <= 120 %}soon{% endif %}" 
+                     data-start-time="{{ class.start_datetime|date:'c' }}">
+                    <div class="card-body p-3">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <h5 class="mb-0">
+                                        <a href="{% url 'module_detail' class.class_obj.module.id %}" class="text-decoration-none text-dark">
+                                            {{ class.class_obj.module.name }}
+                                        </a>
+                                    </h5>
+                                    <span class="badge bg-primary">{{ class.class_obj.room }}</span>
+                                </div>
+                                <p class="mb-1 text-muted">
+                                    <i class="far fa-clock me-1"></i>
+                                    {{ class.class_obj.start_time|time:"g:i A" }} - {{ class.class_obj.end_time|time:"g:i A" }}
+                                </p>
+                                <p class="mb-0">
+                                    <i class="fas fa-chalkboard-teacher me-1"></i>
+                                    {{ class.class_obj.lecturer.get_full_name|default:class.class_obj.lecturer.username }}
+                                </p>
+                            </div>
+                            <div class="ms-2">
+                                <a href="{% url 'module_detail' class.class_obj.module.id %}" class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-info-circle"></i> Details
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer bg-transparent border-top-0 pt-0">
+                        <div class="countdown text-muted small" id="countdown-{{ forloop.counter }}">
+                            <i class="far fa-clock me-1"></i>
+                            <span class="time-remaining">
+                                {% if class.is_today %}
+                                    Today • Starts in {{ class.time_until }} minutes
+                                {% else %}
+                                    {{ class.start_datetime|date:"D, M j" }} • {{ class.time_until }} minutes until start
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-12">
+                <div class="alert alert-info">
+                    No upcoming classes found.
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Weekly Schedule -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 d-flex justify-content-between align-items-center">
+            <h6 class="m-0 font-weight-bold text-primary">Weekly Schedule</h6>
+            <div class="dropdown no-arrow
+                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="moduleFilter" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                    <i class="fas fa-filter"></i> Filter by Module
+                </button>
+                <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in" aria-labelledby="moduleFilter">
+                    <a class="dropdown-item filter-module" href="#" data-module="">All Modules</a>
+                    {% for module in modules %}
+                    <a class="dropdown-item filter-module" href="#" data-module="{{ module.id }}">{{ module.name }}</a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered schedule-table" id="weeklySchedule">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Monday</th>
+                            <th>Tuesday</th>
+                            <th>Wednesday</th>
+                            <th>Thursday</th>
+                            <th>Friday</th>
+                            <th>Saturday</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for hour in "08:00 10:00 12:00 14:00 16:00 18:00"|split %}
+                        <tr>
+                            <td class="time-slot">{{ hour }}</td>
+                            {% for day in "monday tuesday wednesday thursday friday saturday"|split %}
+                            <td class="schedule-cell position-relative" data-day="{{ day }}">
+                                {% for class in weekly_schedule|get_item:day %}
+                                    {% if class.start_time|time:"H:i" == hour %}
+                                    <div class="class-slot p-2 mb-2 rounded" 
+                                         data-module="{{ class.module.id }}"
+                                         data-start="{{ class.start_time|time:'H:i' }}"
+                                         data-end="{{ class.end_time|time:'H:i' }}">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div>
+                                                <strong>
+                                                    <a href="{% url 'module_detail' class.module.id %}" class="text-dark text-decoration-none">
+                                                        {{ class.module.name }}
+                                                    </a>
+                                                </strong>
+                                                <div class="small text-muted">
+                                                    <i class="fas fa-map-marker-alt me-1"></i>{{ class.room }}
+                                                </div>
+                                                <div class="small">
+                                                    <i class="fas fa-chalkboard-teacher me-1"></i>{{ class.lecturer.get_short_name|default:class.lecturer.username }}
+                                                </div>
+                                            </div>
+                                            <a href="{% url 'module_detail' class.module.id %}" class="btn btn-sm btn-outline-primary btn-sm">
+                                                <i class="fas fa-info-circle"></i>
+                                            </a>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                {% endfor %}
+                            </td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Update countdown timers every minute
+    function updateCountdowns() {
+        $('.class-card').each(function() {
+            const $card = $(this);
+            const startTime = new Date($card.data('start-time'));
+            const now = new Date();
+            const diffMs = startTime - now;
+            
+            if (diffMs <= 0) {
+                $card.find('.countdown').text('Class in progress');
+                return;
+            }
+            
+            const diffMins = Math.round(diffMs / 60000);
+            
+            // Update UI based on time remaining
+            if (diffMins <= 30) {
+                $card.addClass('very-soon');
+                // Show notification at 30 and 15 minutes
+                if (diffMins === 30 || diffMins === 15) {
+                    showNotification($card.find('h5').text(), `Starts in ${diffMins} minutes`);
+                }
+            } else if (diffMins <= 120) {
+                $card.addClass('soon');
+            }
+            
+            // Update countdown text
+            if (diffMins < 60) {
+                $card.find('.countdown').text(`Starts in ${diffMins} minutes`);
+            } else {
+                const hours = Math.floor(diffMins / 60);
+                const mins = diffMins % 60;
+                $card.find('.countdown').text(`Starts in ${hours}h ${mins}m`);
+            }
+        });
+    }
+    
+    // Show browser notification
+    function showNotification(title, message) {
+        if (!("Notification" in window)) {
+            console.log("This browser does not support desktop notification");
+            return;
+        }
+        
+        if (Notification.permission === "granted") {
+            new Notification(title, { body: message });
+        } else if (Notification.permission !== "denied") {
+            Notification.requestPermission().then(permission => {
+                if (permission === "granted") {
+                    new Notification(title, { body: message });
+                }
+            });
+        }
+    }
+    
+    // Request notification permission on page load
+    if ("Notification" in window) {
+        Notification.requestPermission();
+    }
+    
+    // Filter schedule by module
+    $('.filter-module').on('click', function(e) {
+        e.preventDefault();
+        const moduleId = $(this).data('module');
+        
+        if (!moduleId) {
+            $('.class-slot').show();
+            return;
+        }
+        
+        $('.class-slot').hide();
+        $(`.class-slot[data-module="${moduleId}"]`).show();
+    });
+    
+    // Highlight current time in schedule
+    function highlightCurrentTime() {
+        const now = new Date();
+        const currentDay = now.toLocaleString('en-us', { weekday: 'long' }).toLowerCase();
+        const currentTime = now.getHours() * 60 + now.getMinutes();
+        
+        // Remove previous highlights
+        $('.current-time-highlight').removeClass('current-time-highlight');
+        
+        // Add highlight to current time slot
+        $(`td[data-day="${currentDay}"] .class-slot`).each(function() {
+            const $slot = $(this);
+            const startTime = $slot.data('start').split(':');
+            const endTime = $slot.data('end').split(':');
+            const slotStart = parseInt(startTime[0]) * 60 + parseInt(startTime[1]);
+            const slotEnd = parseInt(endTime[0]) * 60 + parseInt(endTime[1]);
+            
+            if (currentTime >= slotStart && currentTime <= slotEnd) {
+                $slot.addClass('current-time-highlight');
+            }
+        });
+    }
+    
+    // Initialize
+    updateCountdowns();
+    highlightCurrentTime();
+    
+    // Update every minute
+    setInterval(updateCountdowns, 60000);
+    setInterval(highlightCurrentTime, 60000);
+});
+</script>
+{% endblock %}

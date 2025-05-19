@@ -1,8 +1,18 @@
-from django.shortcuts import render, redirect, get_object_or_404
+import json
+from django.shortcuts import render, redirect, get_object_or_404, HttpResponse
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
 from django.core.mail import send_mail
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
+from django.db import transaction
+from django.http import JsonResponse
+from django.contrib.gis.geos import Point
+from django.conf import settings
+import logging
+
+logger = logging.getLogger(__name__)
 from django.conf import settings
 from django.http import JsonResponse, HttpResponseRedirect
 from django.db.models.signals import post_save
@@ -51,6 +61,17 @@ def generate_qr(request, module_id=None):
         
         if existing_qr:
             messages.error(request, 'There is already an active QR code for this module.')
+            return redirect('attendance:generate_qr')
+            
+        # Check for overlapping sessions (within 3 hours before or after)
+        new_qr = QRCode(
+            module=module,
+            lecturer=request.user,
+            session_date=timezone.now() + timezone.timedelta(minutes=expiration),
+            expiration_minutes=expiration
+        )
+        if new_qr.has_overlapping_session():
+            messages.error(request, 'There is already a session for this module within the next 3 hours.')
             return redirect('attendance:generate_qr')
         
         # Set session date based on selected expiration time
@@ -236,16 +257,25 @@ def scan_qr(request):
 
 @login_required
 def student_scan(request):
+    if not request.user.is_authenticated:
+        return redirect('login')
+        
     if not request.user.is_student:
-        messages.error(request, 'Access denied. This page is for students only.')
-        return redirect('dashboard:index')
+        messages.error(request, 'Only students can access this page.')
+        return redirect('dashboard')
+        
+    # Get active QR codes for the student's modules
+    active_qr_codes = QRCode.objects.filter(
+        module__students=request.user,
+        is_active=True,
+        session_date__gte=timezone.now() - timedelta(minutes=60)  # Only show codes from the last hour
+    ).select_related('module')
     
-    # Get recent scans for this student
-    recent_scans = Attendance.objects.filter(student=request.user).order_by('-timestamp')[:5]
-    
-    return render(request, 'attendance/student_scan.html', {
-        'recent_scans': recent_scans
-    })
+    context = {
+        'active_qr_codes': active_qr_codes,
+        'google_maps_api_key': settings.GOOGLE_MAPS_API_KEY,
+    }
+    return render(request, 'attendance/student_scan.html', context)
 
 @login_required
 def scan_qr_code(request, qr_code):

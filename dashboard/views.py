@@ -3,6 +3,11 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import get_user_model, authenticate, login
 from django.contrib import messages
 from django.utils import timezone
+from django.http import Http404
+from attendance.models import Module, QRCode, Attendance
+from datetime import timedelta, datetime, time as time_type
+from attendance.models import Attendance, QRCode, Module
+from .models import ClassSchedule
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
@@ -138,11 +143,15 @@ def admin_dashboard(request):
         } for item in daily_data
     }
     
-    # Prepare data for the chart
+    # Prepare data for the chart and calculate max attendance
     daily_attendance = []
+    max_attendance = 0
     for date in date_range:
         if date in daily_attendance_dict:
-            daily_attendance.append(round(daily_attendance_dict[date]['rate'], 1))
+            rate = round(daily_attendance_dict[date]['rate'], 1)
+            daily_attendance.append(rate)
+            if rate > max_attendance:
+                max_attendance = rate
         else:
             daily_attendance.append(0)
     
@@ -186,35 +195,32 @@ def admin_dashboard(request):
                                      .order_by('-timestamp')[:5]
     
     context = {
-        # Basic counts
         'total_modules': total_modules,
         'total_lecturers': total_lecturers,
         'total_students': total_students,
         'total_qr_codes': total_qr_codes,
-        'total_attendance_records': total_attendance_records,
+        'attendance_rate': round(attendance_rate, 1),
         'present_count': present_count,
         'late_count': late_count,
         'absent_count': absent_count,
-        'attendance_rate': round(attendance_rate, 1),
-        
-        # Module statistics
+        'total_attendance_records': total_attendance_records,
         'module_stats': module_stats,
-        'best_module': best_module,
-        'worst_module': worst_module,
         'recent_qrcodes': recent_qrcodes,
-        'recent_activity': recent_activity,
-        
-        # Chart data
         'date_labels': [date.strftime('%b %d') for date in date_range],
         'daily_attendance': daily_attendance,
+        'max_attendance': max_attendance,
         'attendance_distribution': attendance_distribution,
-        'attendance_distribution_labels': list(attendance_distribution.keys()),
-        'attendance_distribution_data': list(attendance_distribution.values()),
-        
-        # Current time for the dashboard
+        'attendance_distribution_labels': [
+            '90-100%', '75-89%', '50-74%', 'Below 50%'
+        ],
+        'attendance_distribution_data': [
+            attendance_distribution['90-100%'],
+            attendance_distribution['75-89%'],
+            attendance_distribution['50-74%'],
+            attendance_distribution['0-49%'],
+        ],
         'current_time': timezone.now(),
         'is_admin': True,
-        
         # Additional stats
         'active_sessions': QRCode.objects.filter(is_active=True).count(),
         'today_attendance': Attendance.objects.filter(
@@ -603,6 +609,145 @@ def get_active_sessions(request):
         })
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+@login_required
+def view_schedule(request):
+    """View to display the weekly class schedule and upcoming classes"""
+    # Get the current day and time
+    now = timezone.now()
+    current_day = now.strftime('%A').lower()
+    current_time = now.time()
+    
+    # Get modules for the current user
+    if request.user.is_lecturer:
+        user_modules = Module.objects.filter(lecturer=request.user)
+        # Get all classes for modules taught by the lecturer
+        user_classes = ClassSchedule.objects.filter(
+            module__in=user_modules,
+            is_active=True
+        )
+    else:
+        # Get all classes for modules the student is enrolled in
+        user_classes = ClassSchedule.objects.filter(
+            module__enrolled_students=request.user,
+            is_active=True
+        )
+    
+    # Get the weekly schedule for user's modules
+    weekly_schedule = {day[0]: [] for day in ClassSchedule.DAYS_OF_WEEK}
+    for class_schedule in user_classes.order_by('day_of_week', 'start_time'):
+        weekly_schedule[class_schedule.day_of_week].append(class_schedule)
+    
+    # Get upcoming classes (next 4 hours)
+    upcoming_time = (now + timedelta(hours=4)).time()
+    upcoming_classes = []
+    
+    # Convert day names to match our model
+    days_order = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+    current_day_index = days_order.index(current_day) if current_day in days_order else -1
+    
+    # Check today's remaining classes
+    if current_day_index >= 0:
+        today_classes = user_classes.filter(
+            day_of_week=current_day,
+            start_time__gte=current_time
+        ).order_by('start_time')
+        
+        for cls in today_classes:
+            class_time = datetime.combine(now.date(), cls.start_time)
+            time_diff = (class_time - now).total_seconds() / 60  # in minutes
+            upcoming_classes.append({
+                'class_obj': cls,
+                'time_until': time_diff,
+                'is_today': True,
+                'start_datetime': class_time
+            })
+    
+    # Add classes from upcoming days (next 7 days)
+    for i in range(1, 7):
+        next_day_index = (current_day_index + i) % 7
+        if next_day_index >= len(days_order):
+            continue
+            
+        day_name = days_order[next_day_index]
+        day_classes = user_classes.filter(
+            day_of_week=day_name
+        ).order_by('start_time')
+        
+        days_to_add = (7 + next_day_index - current_day_index) % 7
+        class_date = now.date() + timedelta(days=days_to_add)
+        
+        for cls in day_classes:
+            class_time = datetime.combine(class_date, cls.start_time)
+            time_diff = (class_time - now).total_seconds() / 60  # in minutes
+            upcoming_classes.append({
+                'class_obj': cls,
+                'time_until': time_diff,
+                'is_today': False,
+                'start_datetime': class_time
+            })
+    
+    # Sort all upcoming classes by time
+    upcoming_classes.sort(key=lambda x: x['time_until'])
+    
+    # Get the next 3 upcoming classes
+    next_classes = upcoming_classes[:3]
+    
+    # Get unique modules for the filter dropdown
+    modules = user_classes.values_list('module', 'module__name').distinct()
+    
+    context = {
+        'weekly_schedule': weekly_schedule,
+        'next_classes': next_classes,
+        'current_day': current_day,
+        'current_time': current_time,
+        'modules': [{'id': m[0], 'name': m[1]} for m in modules],
+        'now': now,
+    }
+    
+    return render(request, 'dashboard/schedule.html', context)
+
+@login_required
+def module_detail(request, module_id):
+    """View to display module details and course outline"""
+    # Get the module, ensuring the user has permission to view it
+    if request.user.is_lecturer:
+        module = get_object_or_404(Module, id=module_id, lecturers=request.user)
+    else:
+        module = get_object_or_404(Module, id=module_id, students=request.user)
+    
+    # Get upcoming sessions for this module
+    upcoming_sessions = QRCode.objects.filter(
+        module=module,
+        session_date__gte=timezone.now()
+    ).order_by('session_date')
+    
+    # Get attendance stats for the student (if not lecturer)
+    attendance_stats = None
+    if not request.user.is_lecturer:
+        total_sessions = QRCode.objects.filter(module=module).count()
+        attended_sessions = Attendance.objects.filter(
+            student=request.user,
+            qrcode__module=module,
+            status='present'
+        ).count()
+        
+        if total_sessions > 0:
+            attendance_percentage = (attended_sessions / total_sessions) * 100
+            attendance_stats = {
+                'total_sessions': total_sessions,
+                'attended_sessions': attended_sessions,
+                'attendance_percentage': round(attendance_percentage, 2)
+            }
+    
+    context = {
+        'module': module,
+        'upcoming_sessions': upcoming_sessions,
+        'attendance_stats': attendance_stats,
+        'is_lecturer': request.user.is_lecturer,
+    }
+    
+    return render(request, 'dashboard/module_detail.html', context)
 
 @login_required
 def get_attendance_stats(request):

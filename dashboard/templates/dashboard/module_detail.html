@@ -1,0 +1,131 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ module.name }} - Course Details{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="h5 mb-0">{{ module.name }} ({{ module.code }})</h2>
+                </div>
+                <div class="card-body">
+                    <div class="mb-4">
+                        <h4 class="h6 text-muted">Module Description</h4>
+                        <p class="mb-0">{{ module.description|default:"No description available." }}</p>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <h4 class="h6 text-muted">Course Outline</h4>
+                        {% if module.course_outline %}
+                            <div class="bg-light p-3 rounded">
+                                {{ module.course_outline|linebreaks }}
+                            </div>
+                        {% else %}
+                            <p class="text-muted">No course outline available.</p>
+                        {% endif %}
+                    </div>
+                    
+                    {% if is_lecturer %}
+                    <div class="d-flex justify-content-end">
+                        <a href="{% url 'admin:attendance_module_change' module.id %}" class="btn btn-outline-primary">
+                            <i class="fas fa-edit me-1"></i> Edit Module
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <!-- Upcoming Sessions -->
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h3 class="h6 mb-0">Upcoming Sessions</h3>
+                </div>
+                <div class="card-body p-0">
+                    {% if upcoming_sessions %}
+                        <ul class="list-group list-group-flush">
+                            {% for session in upcoming_sessions|slice:":5" %}
+                                <li class="list-group-item">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <strong>{{ session.session_date|date:"D, M j" }}</strong><br>
+                                            <small class="text-muted">{{ session.session_date|time:"g:i A" }}</small>
+                                        </div>
+                                        <span class="badge bg-primary">Active in {{ session.get_remaining_time }}</span>
+                                    </div>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                        {% if upcoming_sessions|length > 5 %}
+                            <div class="card-footer text-center">
+                                <small class="text-muted">And {{ upcoming_sessions|length|add:"-5" }} more upcoming sessions</small>
+                            </div>
+                        {% endif %}
+                    {% else %}
+                        <div class="p-3 text-center text-muted">
+                            No upcoming sessions scheduled.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Attendance Stats (for students) -->
+            {% if attendance_stats and not is_lecturer %}
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white">
+                    <h3 class="h6 mb-0">Your Attendance</h3>
+                </div>
+                <div class="card-body text-center">
+                    <div class="display-4 fw-bold text-success mb-2">
+                        {{ attendance_stats.attendance_percentage }}%
+                    </div>
+                    <p class="mb-2">
+                        <span class="text-muted">Attended:</span>
+                        {{ attendance_stats.attended_sessions }} of {{ attendance_stats.total_sessions }} sessions
+                    </p>
+                    <div class="progress" style="height: 10px;">
+                        <div class="progress-bar bg-success" role="progressbar" 
+                             style="width: {{ attendance_stats.attendance_percentage }}%" 
+                             aria-valuenow="{{ attendance_stats.attendance_percentage }}" 
+                             aria-valuemin="0" 
+                             aria-valuemax="100">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Module Lecturers -->
+            <div class="card">
+                <div class="card-header bg-secondary text-white">
+                    <h3 class="h6 mb-0">Lecturers</h3>
+                </div>
+                <div class="card-body p-0">
+                    <ul class="list-group list-group-flush">
+                        {% for lecturer in module.lecturers.all %}
+                            <li class="list-group-item">
+                                <div class="d-flex align-items-center">
+                                    <div class="flex-shrink-0 me-3">
+                                        <div class="avatar-sm bg-light rounded-circle d-flex align-items-center justify-content-center">
+                                            <i class="fas fa-user-tie text-muted"></i>
+                                        </div>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <h6 class="mb-0">{{ lecturer.get_full_name|default:lecturer.username }}</h6>
+                                        <small class="text-muted">{{ lecturer.email }}</small>
+                                    </div>
+                                </div>
+                            </li>
+                        {% empty %}
+                            <li class="list-group-item text-muted">No lecturers assigned</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
