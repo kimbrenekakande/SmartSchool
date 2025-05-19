@@ -30,4 +30,7 @@ urlpatterns = [
     
     # Attendance submission
     path('submit-attendance/<int:qrcode_id>/', csrf_exempt(views.submit_attendance), name='submit_attendance'),
+    
+    # Module enrollment
+    path('enroll/<int:module_id>/', login_required(views.enroll_in_module), name='enroll_module'),
 ]

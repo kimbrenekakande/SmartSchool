@@ -21,6 +21,8 @@ urlpatterns = [
     path('student/scan/', views.student_scan, name='student_scan'),
     path('scan/<str:qr_code>/', views.scan_qr_code, name='scan_qr_code'),
     path('attendance/<int:module_id>/', views.attendance_report, name='attendance_report'),
+    path('session/<int:qrcode_id>/', views.session_detail, name='session_detail'),
+    path('download-attendance/<int:qrcode_id>/', views.download_attendance, name='download_attendance'),
     path('test/', test_view, name='test_view'),
     path('simple/', simple_test, name='simple_test'),
 ]

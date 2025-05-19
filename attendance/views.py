@@ -241,7 +241,7 @@ def student_scan(request):
         return redirect('dashboard:index')
     
     # Get recent scans for this student
-    recent_scans = Attendance.objects.filter(student=request.user).order_by('-scanned_time')[:5]
+    recent_scans = Attendance.objects.filter(student=request.user).order_by('-timestamp')[:5]
     
     return render(request, 'attendance/student_scan.html', {
         'recent_scans': recent_scans
@@ -253,9 +253,31 @@ def scan_qr_code(request, qr_code):
         return JsonResponse({'success': False, 'message': 'Access denied'})
     
     try:
-        qr = QRCode.objects.get(qr_code=qr_code)
+        # First try to find by qr_code field directly
+        try:
+            # Try to parse as JSON first
+            qr_data = json.loads(qr_code)
+            if 'qr_id' in qr_data:
+                qr = QRCode.objects.get(id=qr_data['qr_id'])
+            else:
+                return JsonResponse({'success': False, 'message': 'Invalid QR code format: missing qr_id'})
+        except json.JSONDecodeError:
+            # If not JSON, try to find by qr_code field directly
+            qr = QRCode.objects.get(qr_code=qr_code)
+        
+        # Check if QR code is active
         if not qr.is_active:
             return JsonResponse({'success': False, 'message': 'This QR code is no longer active.'})
+        
+        # Check if QR code has expired
+        if timezone.now() > qr.session_date + timezone.timedelta(minutes=qr.expiration_minutes):
+            qr.is_active = False
+            qr.save()
+            return JsonResponse({'success': False, 'message': 'This QR code has expired.'})
+        
+        # Check if student is enrolled in the module
+        if not qr.module.students.filter(id=request.user.id).exists():
+            return JsonResponse({'success': False, 'message': 'You are not enrolled in this module.'})
         
         # Check if the student has already scanned this QR code
         if Attendance.objects.filter(student=request.user, qr_code=qr).exists():
@@ -265,15 +287,24 @@ def scan_qr_code(request, qr_code):
         Attendance.objects.create(
             student=request.user,
             qr_code=qr,
-            scanned_time=timezone.now()
+            timestamp=timezone.now(),
+            status='present'
         )
         
-        return JsonResponse({'success': True, 'message': 'QR code scanned successfully.'})
+        return JsonResponse({
+            'success': True, 
+            'message': 'Attendance recorded successfully.',
+            'module': qr.module.code,
+            'lecturer': qr.lecturer.get_full_name() or qr.lecturer.username,
+            'session_date': qr.session_date.strftime('%Y-%m-%d %H:%M:%S')
+        })
         
     except QRCode.DoesNotExist:
-        return JsonResponse({'success': False, 'message': 'Invalid QR code.'})
+        return JsonResponse({'success': False, 'message': 'Invalid QR code. Please make sure you are scanning a valid code.'})
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'message': 'Invalid QR code format. Please scan a valid QR code.'})
     except Exception as e:
-        return JsonResponse({'success': False, 'message': str(e)})
+        return JsonResponse({'success': False, 'message': f'An error occurred: {str(e)}'})
 
 def login_view(request):
     if request.user.is_authenticated:
@@ -320,6 +351,89 @@ def login_view(request):
 def logout_view(request):
     logout(request)
     return redirect('attendance:login')
+
+@login_required
+def session_detail(request, qrcode_id):
+    """View to display detailed information about a specific attendance session."""
+    qrcode = get_object_or_404(QRCode, id=qrcode_id, lecturer=request.user)
+    
+    # Get attendance records for this QR code
+    attendance_records = Attendance.objects.filter(qrcode=qrcode).select_related('student')
+    
+    # Calculate attendance statistics
+    total_students = qrcode.module.students.count()
+    present_count = attendance_records.filter(status='present').count()
+    absent_count = total_students - present_count
+    attendance_rate = (present_count / total_students * 100) if total_students > 0 else 0
+    
+    context = {
+        'qrcode': qrcode,
+        'attendance_records': attendance_records,
+        'total_students': total_students,
+        'present_count': present_count,
+        'absent_count': absent_count,
+        'attendance_rate': round(attendance_rate, 1)
+    }
+    
+    return render(request, 'attendance/session_detail.html', context)
+
+def download_attendance(request, qrcode_id):
+    """View to download attendance data as Excel file."""
+    import pandas as pd
+    from io import BytesIO
+    from django.http import HttpResponse
+    from django.utils import timezone
+    
+    # Get the QR code and verify permissions
+    qrcode = get_object_or_404(QRCode, id=qrcode_id, lecturer=request.user)
+    
+    # Get attendance records
+    attendance_records = Attendance.objects.filter(qrcode=qrcode).select_related('student')
+    
+    # Create a DataFrame with the attendance data
+    data = []
+    for record in attendance_records:
+        data.append({
+            'Student ID': record.student.student_id,
+            'Name': record.student.get_full_name() or record.student.username,
+            'Status': record.get_status_display(),
+            'Time': timezone.localtime(record.timestamp).strftime('%Y-%m-%d %H:%M:%S'),
+            'Email': record.student.email
+        })
+    
+    if not data:
+        messages.warning(request, 'No attendance records found to export.')
+        return redirect('attendance:session_detail', qrcode_id=qrcode_id)
+    
+    # Create Excel file in memory
+    df = pd.DataFrame(data)
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, sheet_name='Attendance', index=False)
+        
+        # Auto-adjust column widths
+        worksheet = writer.sheets['Attendance']
+        for column in worksheet.columns:
+            max_length = 0
+            column_letter = column[0].column_letter
+            for cell in column:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = (max_length + 2) * 1.2
+            worksheet.column_dimensions[column_letter].width = adjusted_width
+    
+    # Prepare the response
+    filename = f'attendance_{qrcode.module.code}_{qrcode.session_date}.xlsx'
+    response = HttpResponse(
+        output.getvalue(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    return response
 
 @login_required
 def attendance_report(request, module_id):

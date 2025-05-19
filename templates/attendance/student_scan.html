@@ -20,6 +20,7 @@
                                 <p>Point your camera at the QR code to scan it.</p>
                                 <p class="mt-2">Make sure the QR code is well-lit and in focus.</p>
                             </div>
+                            <div id="scan-status" class="mt-4 text-sm text-gray-600"></div>
                         </div>
                     </div>
                 </div>
@@ -72,26 +73,28 @@
 
     function onScanSuccess(decodedText, decodedResult) {
         // Handle the scanned QR code
+        document.getElementById("scan-status").innerHTML = "Scanned QR code: " + decodedText;
         fetch(`/attendance/scan/${decodedText}/`)
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    alert('Successfully scanned QR code!');
+                    document.getElementById("scan-status").innerHTML = "Scan successful!";
                     // Refresh the page to update the scan history
                     location.reload();
                 } else {
-                    alert(data.message || 'Failed to scan QR code.');
+                    document.getElementById("scan-status").innerHTML = "Scan failed: " + data.message;
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('An error occurred while scanning the QR code.');
+                document.getElementById("scan-status").innerHTML = "An error occurred while scanning the QR code.";
             });
     }
 
     function onScanFailure(error) {
         // Handle scan failure, if you want to
         console.warn(`QR code scanning failed: ${error}`);
+        document.getElementById("scan-status").innerHTML = "Scan failed: " + error;
     }
 
     function startScanner() {
@@ -109,7 +112,7 @@
             onScanFailure
         ).catch(err => {
             console.error(`Camera start error: ${err}`);
-            alert('Failed to start camera. Please make sure you have granted camera permissions.');
+            document.getElementById("scan-status").innerHTML = "Failed to start camera. Please make sure you have granted camera permissions.";
         });
     }
 

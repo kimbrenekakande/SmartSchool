@@ -68,20 +68,76 @@ def admin_dashboard(request):
 
 @login_required
 def lecturer_dashboard(request):
-    """Lecturer dashboard view."""
+    """Lecturer dashboard view with comprehensive statistics and attendance data."""
     if not request.user.is_lecturer and not request.user.is_superuser:
         return redirect('attendance:login')
     
     user = request.user
-    modules = Module.objects.filter(lecturers=user)
+    now = timezone.now()
+    
+    # Get modules taught by this lecturer
+    modules = Module.objects.filter(lecturers=user).prefetch_related('students')
+    
+    # Get active QR codes for this lecturer
+    active_qrcodes = QRCode.objects.filter(
+        lecturer=user,
+        is_active=True
+    ).select_related('module').order_by('-created_at')
     
     # Get recent QR codes for this lecturer
-    recent_qrcodes = QRCode.objects.filter(lecturer=user).order_by('-created_at')[:5]
+    recent_qrcodes = QRCode.objects.filter(lecturer=user).select_related('module').order_by('-created_at')[:5]
+    
+    # Calculate statistics
+    total_students = sum(module.students.count() for module in modules)
+    
+    # Filter active sessions by checking expiration time
+    active_sessions = []
+    for qr in active_qrcodes:
+        expiration_time = qr.created_at + timezone.timedelta(minutes=qr.expiration_minutes)
+        if expiration_time > now:
+            active_sessions.append(qr)
+    
+    active_sessions_count = len(active_sessions)
+    
+    # Get attendance statistics for recent sessions
+    attendance_stats = []
+    for qrcode in recent_qrcodes:
+        total_attendance = Attendance.objects.filter(qrcode=qrcode).count()
+        present_count = Attendance.objects.filter(qrcode=qrcode, status='present').count()
+        attendance_rate = (present_count / total_attendance * 100) if total_attendance > 0 else 0
+        
+        attendance_stats.append({
+            'qrcode': qrcode,
+            'total_attendance': total_attendance,
+            'present_count': present_count,
+            'attendance_rate': round(attendance_rate, 1)
+        })
+    
+    # Get upcoming sessions (next 7 days)
+    upcoming_sessions = QRCode.objects.filter(
+        lecturer=user,
+        session_date__gte=now,
+        session_date__lte=now + timezone.timedelta(days=7)
+    ).order_by('session_date')[:5]
+    
+    # Calculate average attendance rate
+    if attendance_stats:
+        avg_attendance_rate = sum(stat['attendance_rate'] for stat in attendance_stats) / len(attendance_stats)
+    else:
+        avg_attendance_rate = 0
     
     context = {
         'modules': modules,
         'recent_qrcodes': recent_qrcodes,
-        'is_lecturer': True
+        'upcoming_sessions': upcoming_sessions,
+        'attendance_stats': attendance_stats,
+        'total_students': total_students,
+        'active_sessions': active_sessions_count,
+        'active_qrcodes': active_sessions,  # Add active QR codes to context
+        'module_count': modules.count(),
+        'is_lecturer': True,
+        'now': now,
+        'avg_attendance_rate': round(avg_attendance_rate, 1)
     }
     return render(request, 'dashboard/lecturer.html', context)
 
@@ -101,23 +157,49 @@ def debug_user_roles(request):
     })
 
 @login_required
+def enroll_in_module(request, module_id):
+    """Handle module enrollment for students."""
+    if not request.user.is_student and not request.user.is_superuser:
+        messages.error(request, 'Only students can enroll in modules.')
+        return redirect('dashboard:student_dashboard')
+    
+    module = get_object_or_404(Module, id=module_id)
+    
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        
+        if action == 'enroll':
+            if not module.students.filter(id=request.user.id).exists():
+                module.students.add(request.user)
+                messages.success(request, f'Successfully enrolled in {module.code} - {module.name}')
+            else:
+                messages.info(request, f'You are already enrolled in {module.code}')
+        elif action == 'unenroll':
+            if module.students.filter(id=request.user.id).exists():
+                module.students.remove(request.user)
+                messages.success(request, f'Successfully unenrolled from {module.code} - {module.name}')
+            else:
+                messages.info(request, f'You are not enrolled in {module.code}')
+    
+    return redirect('dashboard:student_dashboard')
+
+@login_required
 def student_dashboard(request):
     """Student dashboard view with active QR codes and attendance statistics."""
-    # Debug: Print user role information
-    print(f"[DEBUG] User: {request.user.username}")
-    print(f"[DEBUG] is_student: {request.user.is_student}")
-    print(f"[DEBUG] is_lecturer: {request.user.is_lecturer}")
-    print(f"[DEBUG] is_superuser: {request.user.is_superuser}")
-    
     if not request.user.is_student and not request.user.is_superuser:
-        print("[DEBUG] User is not a student, redirecting...")
         return redirect('attendance:login')
     
     user = request.user
     now = timezone.now()
     
     # Get all modules the student is enrolled in
-    modules = Module.objects.filter(students=user).prefetch_related('qrcodes')
+    enrolled_modules = Module.objects.filter(students=user).prefetch_related('qrcodes')
+    
+    # Get all available modules that the student is not enrolled in
+    available_modules = Module.objects.exclude(students=user).order_by('code')
+    
+    # For backward compatibility
+    modules = enrolled_modules
     
     # Get active QR codes for student's modules (active within the last 15 minutes or next 15 minutes)
     time_window = timezone.timedelta(minutes=15)
@@ -126,6 +208,14 @@ def student_dashboard(request):
         is_active=True,
         session_date__gte=now - time_window,
         session_date__lte=now + time_window
+    ).select_related('module', 'lecturer').order_by('session_date')
+    
+    # Get upcoming QR codes (next 24 hours)
+    upcoming_qrcodes = QRCode.objects.filter(
+        module__in=modules,
+        is_active=True,
+        session_date__gt=now,
+        session_date__lte=now + timezone.timedelta(hours=24)
     ).select_related('module', 'lecturer').order_by('session_date')
     
     # Get attendance statistics for each module
@@ -185,8 +275,10 @@ def student_dashboard(request):
     next_session = min(next_sessions) if next_sessions else None
     
     context = {
-        'modules': modules,
+        'modules': enrolled_modules,
+        'available_modules': available_modules,
         'active_qrcodes': active_qrcodes,
+        'upcoming_qrcodes': upcoming_qrcodes,
         'attendance_stats': attendance_stats,
         'overall_attendance': overall_attendance,
         'total_attended': total_attended,
