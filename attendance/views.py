@@ -1,22 +1,35 @@
 import json
-from django.shortcuts import render, redirect, get_object_or_404, HttpResponse
-from django.contrib.auth.decorators import login_required
-from django.contrib import messages
-from django.utils import timezone
-from django.core.mail import send_mail
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_http_methods
-from django.db import transaction
-from django.http import JsonResponse
-from django.contrib.gis.geos import Point
-from django.conf import settings
 import logging
+from datetime import timedelta
 
-logger = logging.getLogger(__name__)
 from django.conf import settings
-from django.http import JsonResponse, HttpResponseRedirect
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.core.mail import send_mail
+from django.db import transaction
+from django.db.models import Avg, Count, F, Q, Sum
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.http import (
+    Http404, HttpResponse, HttpResponseForbidden, HttpResponseRedirect,
+    HttpResponseServerError, JsonResponse,
+)
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
+from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
+
+# Try to import GDAL-related modules if available
+try:
+    from django.contrib.gis.geos import Point
+    GEODJANGO_AVAILABLE = True
+except (ImportError, OSError) as e:
+    print(f"Geodjango not available: {e}")
+    GEODJANGO_AVAILABLE = False
+    Point = None
+
+logger = logging.getLogger(__name__)
 from django.contrib.auth import authenticate, login as auth_login, logout
 from django.contrib.auth.forms import AuthenticationForm
 from django.core.files.base import ContentFile
@@ -271,11 +284,154 @@ def student_scan(request):
         session_date__gte=timezone.now() - timedelta(minutes=60)  # Only show codes from the last hour
     ).select_related('module')
     
+    # Get recent attendance records
+    recent_attendance = Attendance.objects.filter(
+        student=request.user
+    ).select_related('qrcode__module').order_by('-timestamp')[:5]
+    
     context = {
         'active_qr_codes': active_qr_codes,
+        'recent_attendance': recent_attendance,
         'google_maps_api_key': settings.GOOGLE_MAPS_API_KEY,
     }
     return render(request, 'attendance/student_scan.html', context)
+
+@require_http_methods(["POST"])
+@login_required
+@csrf_exempt
+def verify_biometric(request):
+    """Handle biometric verification for attendance"""
+    if not request.user.is_authenticated or not request.user.is_student:
+        return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=401)
+    
+    try:
+        data = json.loads(request.body)
+        qr_code = data.get('qr_code')
+        biometric_data = data.get('biometric_data')
+        latitude = data.get('latitude')
+        longitude = data.get('longitude')
+        
+        if not all([qr_code, biometric_data, latitude is not None, longitude is not None]):
+            return JsonResponse({'success': False, 'error': 'Missing required fields'}, status=400)
+            
+        # Get the QR code and verify it's active
+        try:
+            qr = QRCode.objects.select_related('module').get(qr_code=qr_code, is_active=True)
+        except QRCode.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Invalid or expired QR code'}, status=400)
+            
+        # Check if student is enrolled
+        if not qr.module.students.filter(id=request.user.id).exists():
+            return JsonResponse({'success': False, 'error': 'Not enrolled in this module'}, status=403)
+        
+        # Create or update attendance record
+        with transaction.atomic():
+            attendance, created = Attendance.objects.get_or_create(
+                student=request.user,
+                qrcode=qr,
+                defaults={
+                    'status': 'pending_verification',
+                    'latitude': latitude,
+                    'longitude': longitude,
+                    'biometric_data': biometric_data,
+                    'device_info': {
+                        'user_agent': request.META.get('HTTP_USER_AGENT', ''),
+                        'ip_address': request.META.get('REMOTE_ADDR', '')
+                    }
+                }
+            )
+            
+            if not created:
+                # Update existing attendance record
+                if attendance.biometric_verified:
+                    return JsonResponse({
+                        'success': True, 
+                        'verified': True,
+                        'message': 'Attendance already verified',
+                        'attendance_id': attendance.id
+                    })
+                
+                # Verify biometric (in a real app, you'd compare with stored biometric data)
+                # For now, we'll just check if the data is present
+                if attendance.verify_biometric(biometric_data):
+                    attendance.biometric_verified = True
+                    attendance.status = 'present'  # Final status after verification
+                    attendance.save()
+                    
+                    # Send confirmation email
+                    send_mail(
+                        f'Attendance Verified - {qr.module.code}',
+                        f'Your attendance has been verified for {qr.module.code} on {qr.session_date.strftime("%Y-%m-%d %H:%M")}.',
+                        settings.DEFAULT_FROM_EMAIL,
+                        [request.user.email],
+                        fail_silently=True,
+                    )
+                    
+                    return JsonResponse({
+                        'success': True, 
+                        'verified': True,
+                        'message': 'Biometric verification successful',
+                        'attendance_id': attendance.id
+                    })
+                else:
+                    attendance.verification_attempts += 1
+                    attendance.last_verification_attempt = timezone.now()
+                    attendance.save()
+                    return JsonResponse({
+                        'success': False, 
+                        'verified': False,
+                        'message': 'Biometric verification failed',
+                        'attempts_remaining': 3 - attendance.verification_attempts
+                    }, status=400)
+            
+            # For new attendance record
+            if created:
+                # Check location first
+                location_status = attendance.check_location()
+                if location_status == 'absent':
+                    attendance.status = 'absent'
+                    attendance.save()
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'You are not in the correct location for this class.',
+                        'location_verified': False
+                    }, status=400)
+                    
+                # If location is verified, proceed with biometric
+                # In a real app, you'd compare with stored biometric data
+                # For now, we'll just check if the data is present
+                if attendance.verify_biometric(biometric_data):
+                    attendance.biometric_verified = True
+                    attendance.status = 'present'
+                    attendance.save()
+                    
+                    send_mail(
+                        f'Attendance Verified - {qr.module.code}',
+                        f'Your attendance has been verified for {qr.module.code} on {qr.session_date.strftime("%Y-%m-%d %H:%M")}.',
+                        settings.DEFAULT_FROM_EMAIL,
+                        [request.user.email],
+                        fail_silently=True,
+                    )
+                    
+                    return JsonResponse({
+                        'success': True, 
+                        'verified': True,
+                        'message': 'Attendance verified successfully',
+                        'attendance_id': attendance.id
+                    })
+                
+            return JsonResponse({
+                'success': False, 
+                'verified': False,
+                'message': 'Biometric verification required',
+                'attendance_id': attendance.id
+            })
+            
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON data'}, status=400)
+    except Exception as e:
+        logger.error(f'Error in verify_biometric: {str(e)}', exc_info=True)
+        return JsonResponse({'success': False, 'error': 'Internal server error'}, status=500)
 
 @login_required
 def scan_qr_code(request, qr_code):

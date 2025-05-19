@@ -25,4 +25,5 @@ urlpatterns = [
     path('download-attendance/<int:qrcode_id>/', views.download_attendance, name='download_attendance'),
     path('test/', test_view, name='test_view'),
     path('simple/', simple_test, name='simple_test'),
+    path('verify-biometric/', views.verify_biometric, name='verify_biometric'),
 ]

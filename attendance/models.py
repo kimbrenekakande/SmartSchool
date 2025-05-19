@@ -1,20 +1,22 @@
-import qrcode
 import json
-from django.db import models
-from django.contrib.auth import get_user_model
-from django.conf import settings
-from django.db.models import Count, Q, Avg
-from django.utils import timezone
-import qrcode
-import json
-from io import BytesIO
-from django.core.files import File
 import os
+import qrcode
 from datetime import timedelta
+from io import BytesIO
+
+from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.core.files import File
+from django.db import models
+from django.db.models import Count, Q, Avg, F, Sum
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from django.contrib.gis.geos import Point
-from django.contrib.gis.measure import Distance
+from django.utils import timezone
+
+# Disable geospatial features by default
+GEODJANGO_AVAILABLE = False
+Point = None
+Distance = None
 from django.core.exceptions import ValidationError
 import hashlib
 import base64
@@ -235,10 +237,23 @@ class Attendance(models.Model):
         if avg_lat is None or avg_lon is None:
             return 'present'
             
-        # Calculate distance from average location (in meters)
-        class_location = Point(float(avg_lon), float(avg_lat))
-        student_location = Point(float(self.longitude), float(self.latitude))
-        distance = class_location.distance(student_location) * 100  # Convert to meters
+        # Simple distance calculation (Haversine formula approximation)
+        import math
+        
+        # Convert latitude and longitude from degrees to radians
+        lat1 = math.radians(float(self.latitude))
+        lon1 = math.radians(float(self.longitude))
+        lat2 = math.radians(float(avg_lat))
+        lon2 = math.radians(float(avg_lon))
+        
+        # Haversine formula
+        dlon = lon2 - lon1
+        dlat = lat2 - lat1
+        a = math.sin(dlat / 2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2)**2
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+        
+        # Radius of earth in kilometers (6371 km) converted to meters
+        distance = 6371 * c * 1000  # Distance in meters
         
         # If within 50 meters of the class location
         return 'present' if distance <= 50 else 'absent'

@@ -42,6 +42,21 @@ urlpatterns = [
     path('accounts/profile/', RedirectView.as_view(url='/')),  # For admin redirects
 ]
 
+# Serve static and media files in development
 if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    from django.contrib.staticfiles.urls import staticfiles_urlpatterns
+    
+    # Serve static files
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+    
+    # Serve media files
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    
+    # Debug toolbar
+    try:
+        import debug_toolbar
+        urlpatterns = [
+            path('__debug__/', include(debug_toolbar.urls)),
+        ] + urlpatterns
+    except ImportError:
+        pass

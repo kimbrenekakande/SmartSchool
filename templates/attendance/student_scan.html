@@ -2,8 +2,78 @@
 {% load static %}
 
 {% block extra_head %}
+<!-- Debug Information -->
+<script>
+    console.log('Base URL:', window.location.origin);
+    console.log('Static URL:', '{{ STATIC_URL }}');
+    console.log('Google Maps API Key:', '{{ google_maps_api_key|default:"Not set" }}');
+</script>
+
+<!-- Google Maps API -->
+{% if google_maps_api_key %}
 <script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&libraries=places" async defer></script>
-<script src="https://cdn.jsdelivr.net/npm/face-api.js"></script>
+{% else %}
+<script>
+    console.error('Google Maps API key is not set. Location features will be disabled.');
+</script>
+{% endif %}
+
+<!-- Static JavaScript Files -->
+<script>
+    function loadScript(src, onload) {
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = src;
+            script.onload = () => {
+                console.log('Loaded:', src);
+                if (onload) onload();
+                resolve();
+            };
+            script.onerror = (error) => {
+                console.error('Error loading script:', src, error);
+                reject(error);
+            };
+            document.head.appendChild(script);
+        });
+    }
+
+    // Load scripts sequentially
+    document.addEventListener('DOMContentLoaded', () => {
+        const scripts = [
+            '{{ STATIC_URL }}js/face-api.min.js',
+            '{{ STATIC_URL }}js/html5-qrcode.min.js',
+            '{{ STATIC_URL }}js/attendance.js'
+        ];
+        
+        let promise = Promise.resolve();
+        scripts.forEach(src => {
+            promise = promise.then(() => loadScript(src));
+        });
+        
+        promise.catch(error => {
+            console.error('Failed to load one or more scripts:', error);
+            // Show user-friendly error message
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative';
+            errorDiv.role = 'alert';
+            errorDiv.innerHTML = `
+                <strong class="font-bold">Error!</strong>
+                <span class="block sm:inline">Failed to load required resources. Please refresh the page or contact support if the problem persists.</span>
+            `;
+            document.body.prepend(errorDiv);
+        });
+    });
+</script>
+<script>
+    // Global configuration
+    const CONFIG = {
+        VERIFY_BIOMETRIC_URL: "{% url 'attendance:verify_biometric' %}",
+        CSRF_TOKEN: "{{ csrf_token }}",
+        USER_ID: "{{ request.user.id }}",
+        USER_EMAIL: "{{ request.user.email }}",
+        USER_FULL_NAME: "{{ request.user.get_full_name }}"
+    };
+</script>
 <style>
     #video-container {
         position: relative;
@@ -162,8 +232,8 @@
                             {% empty %}
                             <tr>
                                 <td colspan="4" class="px-6 py-4 text-center text-sm text-gray-500">
-                                    No attendance records found.
-                                </td>
+                                No attendance records found.
+                            </td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -175,7 +245,7 @@
 </div>
 
 <!-- Hidden form for QR code data -->
-<form id="qr-form" method="post" action="{% url 'verify_biometric' %}" class="hidden">
+<form id="qr-form" method="post" action="{% url 'attendance:verify_biometric' %}" class="hidden">
     {% csrf_token %}
     <input type="hidden" name="qr_code" id="qr-code-input">
     <input type="hidden" name="latitude" id="latitude-input">
