@@ -2,6 +2,7 @@ from django.urls import path, re_path
 from . import views
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
 from django.views.generic import RedirectView
 
 app_name = 'dashboard'
@@ -33,4 +34,10 @@ urlpatterns = [
     
     # Module enrollment
     path('enroll/<int:module_id>/', login_required(views.enroll_in_module), name='enroll_module'),
+    
+    # Lecturer API endpoints
+    path('api/lecturer/generate-qr/', login_required(views.generate_qr_code), name='generate_qr_code'),
+    path('api/lecturer/end-session/<uuid:session_id>/', login_required(views.end_session), name='end_session'),
+    path('api/lecturer/active-sessions/', login_required(views.get_active_sessions), name='get_active_sessions'),
+    path('api/lecturer/attendance-stats/', login_required(views.get_attendance_stats), name='get_attendance_stats'),
 ]
