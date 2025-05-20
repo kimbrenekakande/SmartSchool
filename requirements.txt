@@ -3,3 +3,7 @@ django-crispy-forms==2.4
 matplotlib==3.9.4
 Pillow==11.2.1
 qrcode==8.2
+psycopg2-binary==2.9.10
+python-dotenv==1.1.0
+crispy-bootstrap4==2024.10
+django-crispy-forms==2.4

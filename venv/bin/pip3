@@ -1,4 +1,4 @@
-#!/Users/eis/Documents/GitHub/SmartSchool/venv/bin/python3.13
+#!/Users/eis/Documents/GitHub/SmartSchool/venv/bin/python
 # -*- coding: utf-8 -*-
 import re
 import sys
