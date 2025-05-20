@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+
+{% block title %}Welcome to SmartSchool{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 text-center">
+            <h1 class="display-4 mb-4">Welcome to SmartSchool</h1>
+            <p class="lead mb-5">Smart attendance system for modern educational institutions</p>
+            
+            <div class="row">
+                <!-- Student Login Card -->
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-body">
+                            <div class="text-center mb-4">
+                                <i class="fas fa-user-graduate fa-4x text-primary mb-3"></i>
+                                <h3>Students</h3>
+                            </div>
+                            <p class="card-text">Access your attendance records, view schedules, and mark your attendance using QR codes.</p>
+                            <div class="mt-4">
+                                {% url 'dashboard:student_dashboard' as student_dashboard_url %}
+                                <a href="{% url 'attendance:login' %}{% if student_dashboard_url %}?next={{ student_dashboard_url|urlencode }}{% endif %}" class="btn btn-primary btn-lg w-100">
+                                    <i class="fas fa-sign-in-alt me-2"></i> Student Login
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Lecturer Login Card -->
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-body">
+                            <div class="text-center mb-4">
+                                <i class="fas fa-chalkboard-teacher fa-4x text-success mb-3"></i>
+                                <h3>Lecturers</h3>
+                            </div>
+                            <p class="card-text">Manage your classes, generate QR codes for attendance, and track student participation.</p>
+                            <div class="mt-4">
+                                {% url 'dashboard:lecturer_dashboard' as lecturer_dashboard_url %}
+                                <a href="{% url 'attendance:login' %}{% if lecturer_dashboard_url %}?next={{ lecturer_dashboard_url|urlencode }}{% endif %}" class="btn btn-success btn-lg w-100">
+                                    <i class="fas fa-sign-in-alt me-2"></i> Lecturer Login
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-5">
+                <p class="text-muted">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Need help? Contact the system administrator at <a href="mailto:support@smartschool.edu">support@smartschool.edu</a>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .card {
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        border: none;
+        border-radius: 15px;
+    }
+    .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    }
+    .btn {
+        border-radius: 50px;
+        padding: 10px 25px;
+        font-weight: 500;
+    }
+    .display-4 {
+        font-weight: 600;
+        color: #2c3e50;
+    }
+    .lead {
+        color: #7f8c8d;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Font Awesome for icons -->
+<script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+{% endblock %}

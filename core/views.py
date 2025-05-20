@@ -1,12 +1,38 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth import login, authenticate
-from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth import login, authenticate, update_session_auth_hash
+from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm
 from django.contrib import messages
+from django.views.generic import TemplateView
+from django.conf import settings
+
+class HomeView(TemplateView):
+    template_name = 'core/home.html'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update({
+            'is_home': True,
+            'STATIC_URL': '/static/',
+            'debug': settings.DEBUG
+        })
+        return context
+        
+    def get(self, request, *args, **kwargs):
+        # If user is already authenticated, redirect to appropriate dashboard
+        if request.user.is_authenticated:
+            if hasattr(request.user, 'is_student') and request.user.is_student:
+                from django.urls import reverse
+                return redirect('dashboard:student_dashboard')
+            elif hasattr(request.user, 'is_lecturer') and request.user.is_lecturer:
+                return redirect('dashboard:lecturer_dashboard')
+            elif request.user.is_superuser:
+                return redirect('dashboard:admin_dashboard')
+        return super().get(request, *args, **kwargs)
 
 @login_required
 def profile(request):
-    return render(request, 'core/profile.html')
+    return render(request, 'core/profile.html', {'is_profile': True})
 
 @login_required
 def update_profile(request):

@@ -1,6 +1,7 @@
 import json
 import os
 import qrcode
+import uuid
 from datetime import timedelta
 from io import BytesIO
 
