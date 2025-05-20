@@ -12,6 +12,11 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 
 import os
 from pathlib import Path
+from dotenv import load_dotenv
+from urllib.parse import urlparse
+
+# Load environment variables
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -48,17 +53,17 @@ INSTALLED_APPS = [
     'core',
 ]
 
-# Load environment variables
-from dotenv import load_dotenv
-import os
+# Default Django database settings (PostgreSQL)
+tmpPostgres = urlparse(os.getenv("DATABASE_URL"))
 
-load_dotenv()
-
-# Default Django database settings (SQLite)
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': tmpPostgres.path.replace('/', ''),
+        'USER': tmpPostgres.username,
+        'PASSWORD': tmpPostgres.password,
+        'HOST': tmpPostgres.hostname,
+        'PORT': 5432,
     }
 }
 
@@ -103,9 +108,6 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'school_auth.wsgi.application'
-
-
-# Database configuration is now conditionally set above based on GDAL availability
 
 
 # Password validation
